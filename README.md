@@ -15,7 +15,7 @@ a harness to look at them. There is no Flask app yet and nothing to deploy — t
 whole thing runs as static files.
 
 - [x] Design tokens, palette, taxonomy
-- [x] Icon suite (15 glyphs)
+- [x] Icon suite (13 glyphs)
 - [x] Week arithmetic and date formatting
 - [x] Canvas renderer and PNG export
 - [x] Render harness
@@ -60,17 +60,17 @@ Open the harness on your phone and work down this list.
    circles? If not, the height needs to grow beyond 420.
 2. **Real compression.** Hit Download on the first strip and post the PNG into
    the actual channel. WhatsApp re-encodes; thin strokes are what suffers.
-3. **The three redrawn glyphs.** `upper` and `lower` are now half-figures rather
-   than equipment, and `vacation` is a sun with a suitcase. These have not been
-   seen at final size yet.
+3. **The redrawn glyphs.** `dumbbell` replaces the three body-part figures and
+   `sport` is now a tennis ball rather than a jersey. Neither has been seen at
+   final size on a real screen.
 4. **The finest details.** The doughnut sprinkles and the dots on the illness
    plaster are the smallest marks in the set. If they turn to mush after
    compression, they should go.
 5. **Fonts.** The harness reports whether both faces loaded. If it says they did
    not, everything below it is drawn in a fallback and is not worth judging.
-6. **Long labels.** The fourth test case pushes overlong custom labels through.
-   The renderer shrinks then truncates, and truncation looks bad — the fix is a
-   character limit on the input in checkpoint 2, not more renderer cleverness.
+6. **Labels at the cap.** The last test case runs a 22-character title and
+   12-character labels, which is what the picker will allow. Nothing should be
+   truncated or touching its neighbour at those lengths.
 
 ## Layout
 
@@ -91,7 +91,7 @@ Open the harness on your phone and work down this list.
 
 ```
 static/js/tokens.js    palette, geometry, typography, activity taxonomy
-static/js/icons.js     15 glyphs as op lists, canvas + SVG renderers
+static/js/icons.js     13 glyphs as op lists, canvas + SVG renderers
 static/js/week.js      Monday-anchored weeks, default-week rule, date formatting
 static/js/render.js    the canvas renderer and PNG export
 static/img/            favicon and app icons (three dots)
@@ -111,8 +111,15 @@ the same hue. This is partly forced — a pastel yellow cannot carry a white ico
 at readable contrast — and partly deliberate: effort should be loud and absence
 should be quiet.
 
-**No circular glyphs.** A ring inside a ring has no silhouette, which is why
-Sport is a jersey rather than a football and the doughnut has a bite taken out.
+**Filled mass over outlines.** A thin outlined ring inside a circular badge
+reads as nothing at small size. Sport is a solid disc with knocked-out seams
+rather than an outlined football, and the doughnut has a bite taken out of it so
+its silhouette is not just another circle.
+
+**One glyph per activity, detail as label.** A workout is a dumbbell; which body
+part it was is a label beneath the circle, exactly like a run's character. This
+keeps the glyph count low and means new sub-types cost nothing to add — chest
+was added without drawing anything.
 
 **Knockout detail.** Icons carry two colours: the glyph and the badge behind it.
 Ops prefixed `k` paint in the badge colour, which is how the abs appear on the
@@ -121,6 +128,10 @@ core torso and the sprinkles on the doughnut.
 **Two activities per day, not three.** The stacked circle offsets by 22px into a
 30px gap between columns. A third would either collide with the next day or
 force every circle smaller.
+
+**Labels are sized as a row, not individually.** All seven captions share one
+font size, chosen so the widest fits its column. Sizing each independently left
+one day's caption visibly smaller than the rest.
 
 **Empty days render as rest.** The day stays empty in state, so the app can still
 tell "nothing added" from "I chose to rest" — only the picture treats them alike.

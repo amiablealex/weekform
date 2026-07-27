@@ -82,7 +82,7 @@ const CASES = [
       days: [
         [{ cat: 'cardio', sub: 'run', tag: 'easy', amount: 5, unit: 'km' }],
         [{ cat: 'rest', sub: 'rest' }],
-        [{ cat: 'workout', sub: 'upper' }],
+        [{ cat: 'workout', sub: 'strength', tag: 'upper body', amount: 45, unit: 'min' }],
         [{ cat: 'cardio', sub: 'bike', amount: 45, unit: 'min' },
          { cat: 'mobility', sub: 'yoga' }],
         [{ cat: 'rest', sub: 'rest' }],
@@ -92,11 +92,41 @@ const CASES = [
     },
   },
   {
+    name: 'Every workout sub-type, with and without a duration',
+    state: {
+      title: 'Gym Block', weekStart: week,
+      days: [
+        [{ cat: 'workout', sub: 'strength', tag: 'upper body', amount: 45, unit: 'min' }],
+        [{ cat: 'workout', sub: 'strength', tag: 'chest' }],
+        [{ cat: 'workout', sub: 'strength', tag: 'core', amount: 20, unit: 'min' }],
+        [{ cat: 'workout', sub: 'strength', tag: 'lower body' }],
+        [{ cat: 'workout', sub: 'hiit', amount: 30, unit: 'min' }],
+        [{ cat: 'sport', sub: 'sport', amount: 90, unit: 'min' }],
+        [{ cat: 'sport', sub: 'sport', custom: 'dodgeball' }],
+      ],
+    },
+  },
+  {
+    name: 'Custom sub-types across all three colours',
+    state: {
+      title: 'Odds and Ends', weekStart: week,
+      days: [
+        [{ cat: 'cardio', sub: 'custom', custom: 'rowing', amount: 25, unit: 'min' }],
+        [{ cat: 'cardio', sub: 'run', tag: 'custom', custom: 'hill reps', amount: 8, unit: 'km' }],
+        [{ cat: 'mobility', sub: 'custom', custom: 'physio', amount: 15, unit: 'min' }],
+        [{ cat: 'mobility', sub: 'yoga', amount: 1, unit: 'h' }],
+        [{ cat: 'workout', sub: 'strength', custom: 'kettlebells' }],
+        [{ cat: 'cheat', sub: 'beer' }],
+        [{ cat: 'vacation', sub: 'vacation' }],
+      ],
+    },
+  },
+  {
     name: 'Empty week — every day falls back to rest',
     state: { title: 'My Week', weekStart: week, days: [[], [], [], [], [], [], []] },
   },
   {
-    name: 'Stacked cardio behind cardio — tests the separation ring',
+    name: 'Stacked same-colour days — tests the separation ring',
     state: {
       title: 'Big Block', weekStart: week,
       days: [
@@ -104,7 +134,8 @@ const CASES = [
          { cat: 'cardio', sub: 'swim' }],
         [{ cat: 'cardio', sub: 'run', tag: 'tempo', amount: 1.5, unit: 'h' },
          { cat: 'cardio', sub: 'bike' }],
-        [{ cat: 'workout', sub: 'core' }, { cat: 'workout', sub: 'lower' }],
+        [{ cat: 'workout', sub: 'strength', tag: 'core' },
+         { cat: 'workout', sub: 'hiit' }],
         [{ cat: 'cardio', sub: 'run', tag: 'long', amount: 21.1, unit: 'km' }],
         [{ cat: 'illness', sub: 'illness' }],
         [{ cat: 'illness', sub: 'illness' }],
@@ -114,13 +145,13 @@ const CASES = [
     },
   },
   {
-    name: 'Overlong inputs — custom labels and a long title',
+    name: 'At the input limits — 22 char title, 14 char labels',
     state: {
-      title: 'Marathon Block Week Fourteen', weekStart: week,
+      title: 'Marathon Block Wk Four', weekStart: week,
       days: [
-        [{ cat: 'workout', sub: 'custom', custom: 'kettlebell complex' }],
-        [{ cat: 'mobility', sub: 'custom', custom: 'physio' }],
-        [{ cat: 'cardio', sub: 'run', custom: 'hill repeats', amount: 12.75, unit: 'km' }],
+        [{ cat: 'workout', sub: 'strength', custom: 'kettlebell fly' }],
+        [{ cat: 'mobility', sub: 'custom', custom: 'physiotherapy' }],
+        [{ cat: 'cardio', sub: 'run', tag: 'custom', custom: 'hill repeats', amount: 12.75, unit: 'km' }],
         [{ cat: 'vacation', sub: 'vacation' }],
         [{ cat: 'vacation', sub: 'vacation' }],
         [{ cat: 'vacation', sub: 'vacation' }],
@@ -168,24 +199,32 @@ function drawAll() {
   }
 }
 
-function paletteForIcon(iconId) {
+// Every glyph in every colour it can actually appear in — the spark shows up
+// three times because a custom activity can be cardio, workout or mobility.
+function iconPairings() {
+  const seen = new Set();
+  const out = [];
   for (const cat of CATEGORIES) {
     for (const sub of cat.subs) {
-      if (sub.icon === iconId) return PALETTE[cat.palette];
+      const key = cat.palette + ':' + sub.icon;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ icon: sub.icon, colours: PALETTE[cat.palette],
+                 name: `${sub.icon} · ${cat.id}` });
     }
   }
-  return PALETTE.workout;
+  return out;
 }
 
 function drawIconSheets() {
+  const pairs = iconPairings();
   for (const [target, fill] of [['icons-solo', 0.50], ['icons-meta', 0.36]]) {
     const host = document.getElementById(target);
     host.innerHTML = '';
-    for (const id of Object.keys(ICONS)) {
-      const p = paletteForIcon(id);
+    for (const p of pairs) {
       const fig = document.createElement('figure');
-      fig.innerHTML = iconBadgeSvg(id, p.glyph, p.fill, fill, 84) +
-        `<figcaption>${id}</figcaption>`;
+      fig.innerHTML = iconBadgeSvg(p.icon, p.colours.glyph, p.colours.fill, fill, 84) +
+        `<figcaption>${p.name}</figcaption>`;
       host.appendChild(fig);
     }
   }

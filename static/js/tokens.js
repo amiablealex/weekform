@@ -37,7 +37,7 @@ export const INK = {
   title:    '#14161A',
   subtitle: '#8A9098',
   dayLabel: '#B0B6BC',
-  footer:   '#C2C7CC',
+  footer:   '#9CA3AA',
 };
 
 // --- typography ------------------------------------------------------------
@@ -57,7 +57,7 @@ export const TYPE = {
   dayLabel: { font: 'body',    size: 21, weight: 500, tracking:  1.0 },
   meta:     { font: 'body',    size: 22, weight: 700, tracking:  0   },
   label:    { font: 'body',    size: 18, weight: 500, tracking:  1.6 },
-  footer:   { font: 'body',    size: 19, weight: 400, tracking:  0.4 },
+  footer:   { font: 'body',    size: 21, weight: 500, tracking:  0.4 },
 };
 
 // --- geometry --------------------------------------------------------------
@@ -120,23 +120,24 @@ export const CATEGORIES = [
         tags: ['easy', 'long', 'tempo', 'interval', 'race'], custom: true },
       { id: 'bike', label: 'Bike', icon: 'bike' },
       { id: 'swim', label: 'Swim', icon: 'swim' },
+      { id: 'custom', label: 'Custom', icon: 'custom', custom: true, requiresLabel: true },
     ],
   },
   {
-    id: 'workout', label: 'Workout', palette: 'workout', meta: false,
+    id: 'workout', label: 'Workout', palette: 'workout', meta: true,
     subs: [
-      { id: 'upper',  label: 'Upper body', icon: 'upper' },
-      { id: 'core',   label: 'Core',       icon: 'core' },
-      { id: 'lower',  label: 'Lower body', icon: 'lower' },
-      { id: 'hiit',   label: 'HIIT',       icon: 'hiit' },
-      { id: 'custom', label: 'Custom',     icon: 'custom', custom: true },
+      // Which body part it was is a label, not a glyph — the same shape as a
+      // run's character. Four presets and a free-text option.
+      { id: 'strength', label: 'Strength', icon: 'dumbbell',
+        tags: ['upper body', 'chest', 'core', 'lower body'], custom: true },
+      { id: 'hiit', label: 'HIIT', icon: 'hiit' },
     ],
   },
   {
-    id: 'mobility', label: 'Mobility', palette: 'mobility', meta: false,
+    id: 'mobility', label: 'Mobility', palette: 'mobility', meta: true,
     subs: [
       { id: 'yoga',   label: 'Yoga',   icon: 'mobility' },
-      { id: 'custom', label: 'Custom', icon: 'mobility', custom: true },
+      { id: 'custom', label: 'Custom', icon: 'custom', custom: true, requiresLabel: true },
     ],
   },
   {
@@ -173,6 +174,14 @@ export const UNITS = {
 // layer; raising this needs a rethink of GEO.stackDX/DY, not just this number.
 export const MAX_PER_DAY = 2;
 
+// Input limits, enforced by the picker. The renderer will still shrink and
+// truncate anything that slips through, but truncation cuts mid-word and looks
+// like a bug, so the real fix is to stop it being typed.
+export const LIMITS = {
+  title: 22,
+  label: 12,
+};
+
 // --- lookups --------------------------------------------------------------
 
 const catIndex = new Map(CATEGORIES.map((c) => [c.id, c]));
@@ -197,6 +206,17 @@ export function resolve(activity) {
     icon: sub.icon,
     acceptsMeta: !!cat.meta,
   };
+}
+
+/**
+ * True when this activity must carry a free-text label before it can be saved.
+ * A circle captioned "CUSTOM" tells a reader nothing.
+ */
+export function needsLabel(activity) {
+  const sub = subType(activity.cat, activity.sub);
+  if (!sub) return false;
+  if (sub.requiresLabel) return true;
+  return sub.custom === true && activity.tag === 'custom';
 }
 
 // The label beneath a circle: a free-text custom label wins over a preset tag.

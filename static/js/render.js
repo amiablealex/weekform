@@ -26,13 +26,9 @@ const REST = { cat: 'rest', sub: 'rest' };
 
 // Native canvas letter-spacing lands correct kerning; the manual fallback draws
 // glyph by glyph, which loses kerning pairs but keeps old browsers legible.
-let trackingSupport = null;
 function supportsTracking() {
-  if (trackingSupport === null) {
-    trackingSupport = typeof CanvasRenderingContext2D !== 'undefined' &&
-      'letterSpacing' in CanvasRenderingContext2D.prototype;
-  }
-  return trackingSupport;
+  return typeof CanvasRenderingContext2D !== 'undefined' &&
+    'letterSpacing' in CanvasRenderingContext2D.prototype;
 }
 
 function fontString(spec, sizeOverride) {
@@ -41,10 +37,25 @@ function fontString(spec, sizeOverride) {
   return `${spec.weight} ${size}px ${family}, ${FONTS.fallback}`;
 }
 
+/**
+ * Width of `text` as it will actually be drawn, tracking included.
+ *
+ * The subtlety that bit once: when the canvas supports letterSpacing natively,
+ * drawText applies it, so measuring without it under-reports by roughly one
+ * tracking unit per character. Labels then overflowed their column and
+ * collided with the neighbouring day. Both paths below return the same number
+ * drawText will produce.
+ */
 function measure(ctx, text, tracking) {
-  const w = ctx.measureText(text).width;
-  if (!tracking || supportsTracking()) return w;
-  return w + tracking * Math.max(0, [...text].length - 1);
+  if (!tracking) return ctx.measureText(text).width;
+  if (supportsTracking()) {
+    const prev = ctx.letterSpacing || '0px';
+    ctx.letterSpacing = `${tracking}px`;
+    const w = ctx.measureText(text).width;
+    ctx.letterSpacing = prev;
+    return w - tracking;   // discount the trailing gap, as drawText does
+  }
+  return ctx.measureText(text).width + tracking * Math.max(0, [...text].length - 1);
 }
 
 /**
@@ -87,23 +98,37 @@ function drawText(ctx, text, x, y, spec, colour, align = 'left', sizeOverride) {
 }
 
 /**
- * Shrink then truncate so text fits `maxWidth`. Custom labels are user input
- * and can be any length; the strip must not break because of one long word.
+ * The largest size at which every one of `texts` fits `maxWidth`.
+ *
+ * Sizing the row as a whole rather than each item independently is why the
+ * labels under the circles stay visually consistent: one long label pulls the
+ * whole row down a point rather than sitting there noticeably smaller than its
+ * neighbours.
  */
-function fitText(ctx, text, spec, maxWidth, minSize) {
+function fitSize(ctx, texts, spec, maxWidth, minSize) {
+  const real = texts.filter(Boolean);
+  if (!real.length) return spec.size;
   ctx.save();
   let size = spec.size;
-  ctx.font = fontString(spec, size);
-  while (size > minSize && measure(ctx, text, spec.tracking) > maxWidth) {
-    size -= 1;
+  const widest = () => {
     ctx.font = fontString(spec, size);
-  }
+    return Math.max(...real.map((t) => measure(ctx, t, spec.tracking)));
+  };
+  while (size > minSize && widest() > maxWidth) size -= 1;
+  ctx.restore();
+  return size;
+}
+
+/** Last resort if a string still overruns at the minimum size. */
+function truncateTo(ctx, text, spec, size, maxWidth) {
+  ctx.save();
+  ctx.font = fontString(spec, size);
   let out = text;
   while (out.length > 1 && measure(ctx, out, spec.tracking) > maxWidth) {
     out = out.slice(0, -1);
   }
   ctx.restore();
-  return { text: out.trim(), size };
+  return out.trim();
 }
 
 function circle(ctx, cx, cy, r, colour) {
@@ -117,76 +142,87 @@ function circle(ctx, cx, cy, r, colour) {
 
 /** Draw the whole strip into a 2D context already scaled to logical units. */
 export function drawStrip(ctx, state) {
-  const { width: W, height: H, padX } = GEO;
-
-  ctx.save();
-  ctx.fillStyle = INK.paper;
-  ctx.fillRect(0, 0, W, H);
-
-  // --- masthead ---
-  const title = (state.title || BRAND.defaultTitle).toUpperCase();
-  const titleMax = W - padX * 2;
-  const fittedTitle = fitText(ctx, title, TYPE.title, titleMax, 26);
-  drawText(ctx, fittedTitle.text, padX, GEO.titleY, TYPE.title,
-    INK.title, 'left', fittedTitle.size);
-
-  drawText(ctx, formatRange(state.weekStart), padX, GEO.subtitleY,
-    TYPE.subtitle, INK.subtitle, 'left');
-
-  // --- day columns ---
+  const { width: W, padX } = GEO;
   const centres = columnCentres();
   const pitch = (W - padX * 2) / 7;
   const r = GEO.circleR;
   const cy = GEO.circleY;
 
-  centres.forEach((cx, i) => {
-    drawText(ctx, DAY_LETTERS[i], cx, GEO.dayLabelY, TYPE.dayLabel,
-      INK.dayLabel, 'center');
+  // Labels are centred on their column but must not reach into the next one.
+  // The margin is generous on purpose: two labels that merely fail to overlap
+  // still read as one run-on string.
+  const labelMax = pitch - 18;
+  const metaMax = 2 * Math.sqrt(Math.max(1, r * r - GEO.metaY * GEO.metaY)) - 8;
 
+  ctx.save();
+  ctx.fillStyle = INK.paper;
+  ctx.fillRect(0, 0, W, GEO.height);
+
+  // --- pass one: work out what each day holds --------------------------------
+  const days = centres.map((cx, i) => {
     const entries = (state.days && state.days[i]) || [];
     const list = entries.length ? entries.slice(0, 2) : [REST];
     const primary = list[0];
-    const secondary = list[1] || null;
+    const res = resolve(primary);
+    if (!res) return null;
+    return {
+      cx,
+      primary,
+      secondary: list[1] ? resolve(list[1]) : null,
+      colours: res.colours,
+      icon: res.icon,
+      meta: res.acceptsMeta ? metaFor(primary) : '',
+      label: labelFor(primary),
+    };
+  });
 
-    const pRes = resolve(primary);
-    if (!pRes) return;
+  // One size for the whole row, chosen so the widest entry fits. Sizing each
+  // label independently leaves one day's caption visibly smaller than the rest.
+  const labelSize = fitSize(ctx, days.map((d) => d && d.label), TYPE.label, labelMax, 13);
+  const metaSize = fitSize(ctx, days.map((d) => d && d.meta), TYPE.meta, metaMax, 14);
 
-    if (secondary) {
-      const sRes = resolve(secondary);
-      if (sRes) {
-        // Stacked circle sits behind, offset up and to the right.
-        circle(ctx, cx + GEO.stackDX, cy + GEO.stackDY, r, sRes.colours.fill);
-        // A paper-coloured ring keeps the two readable when their colours are
-        // close — two orange circles would otherwise merge into one blob.
-        circle(ctx, cx, cy, r + 2.5, INK.paper);
-      }
+  // --- masthead --------------------------------------------------------------
+  const title = (state.title || BRAND.defaultTitle).toUpperCase();
+  const titleSize = fitSize(ctx, [title], TYPE.title, W - padX * 2, 26);
+  drawText(ctx, truncateTo(ctx, title, TYPE.title, titleSize, W - padX * 2),
+    padX, GEO.titleY, TYPE.title, INK.title, 'left', titleSize);
+
+  drawText(ctx, formatRange(state.weekStart), padX, GEO.subtitleY,
+    TYPE.subtitle, INK.subtitle, 'left');
+
+  // --- pass two: draw the columns -------------------------------------------
+  days.forEach((day, i) => {
+    drawText(ctx, DAY_LETTERS[i], centres[i], GEO.dayLabelY, TYPE.dayLabel,
+      INK.dayLabel, 'center');
+    if (!day) return;
+    const { cx } = day;
+
+    if (day.secondary) {
+      // Stacked circle sits behind, offset up and to the right.
+      circle(ctx, cx + GEO.stackDX, cy + GEO.stackDY, r, day.secondary.colours.fill);
+      // A paper-coloured ring keeps the two readable when their colours are
+      // close — two orange circles would otherwise merge into one blob.
+      circle(ctx, cx, cy, r + 2.5, INK.paper);
     }
 
-    circle(ctx, cx, cy, r, pRes.colours.fill);
+    circle(ctx, cx, cy, r, day.colours.fill);
 
-    const meta = pRes.acceptsMeta ? metaFor(primary) : '';
-    const iconSize = (meta ? GEO.iconFillWithMeta : GEO.iconFillSolo) * r * 2;
-    const iconY = cy + (meta ? GEO.iconLiftWithMeta : 0);
-    drawIcon(ctx, pRes.icon, cx, iconY, iconSize,
-      pRes.colours.glyph, pRes.colours.fill);
+    const iconSize = (day.meta ? GEO.iconFillWithMeta : GEO.iconFillSolo) * r * 2;
+    const iconY = cy + (day.meta ? GEO.iconLiftWithMeta : 0);
+    drawIcon(ctx, day.icon, cx, iconY, iconSize, day.colours.glyph, day.colours.fill);
 
-    if (meta) {
-      // Keep the duration inside the circle's chord at this height.
-      const chord = 2 * Math.sqrt(Math.max(1, r * r - GEO.metaY * GEO.metaY)) - 8;
-      const fitted = fitText(ctx, meta, TYPE.meta, chord, 14);
-      drawText(ctx, fitted.text, cx, cy + GEO.metaY, TYPE.meta,
-        pRes.colours.glyph, 'center', fitted.size);
+    if (day.meta) {
+      drawText(ctx, truncateTo(ctx, day.meta, TYPE.meta, metaSize, metaMax),
+        cx, cy + GEO.metaY, TYPE.meta, day.colours.glyph, 'center', metaSize);
     }
 
-    const label = labelFor(primary);
-    if (label) {
-      const fitted = fitText(ctx, label, TYPE.label, pitch - 8, 13);
-      drawText(ctx, fitted.text, cx, GEO.labelY, TYPE.label,
-        pRes.colours.label, 'center', fitted.size);
+    if (day.label) {
+      drawText(ctx, truncateTo(ctx, day.label, TYPE.label, labelSize, labelMax),
+        cx, GEO.labelY, TYPE.label, day.colours.label, 'center', labelSize);
     }
   });
 
-  // --- watermark ---
+  // --- watermark -------------------------------------------------------------
   drawText(ctx, BRAND.domain, W - padX, GEO.footerY, TYPE.footer,
     INK.footer, 'right');
 
@@ -234,5 +270,9 @@ export async function loadFonts() {
     document.fonts.load(f).catch(() => {})));
   await document.fonts.ready;
 }
+
+// Exported for tests. Measurement drifting out of step with drawing is the one
+// bug this file has actually shipped, so it is worth asserting directly.
+export { measure, fitSize, truncateTo, supportsTracking };
 
 export { PALETTE, GEO };

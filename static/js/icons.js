@@ -50,27 +50,14 @@ export const ICONS = {
     ['s', 'M-19 17 Q-14 13 -9 17 Q-4 21 1 17', 3.4],
   ],
 
-  // Top half of a figure: head, torso, both arms bent up at the elbow, waist.
-  upper: [
-    ['fc', 0, -15, 5.6],
-    ['s', 'M0 -8 V7', 8.5],
-    ['s', 'M-13 5 L-13 -4 L-4.5 -7.5', 5.5],
-    ['s', 'M13 5 L13 -4 L4.5 -7.5', 5.5],
-    ['s', 'M-7.5 11.5 H7.5', 6],
-  ],
-
-  core: [
-    ['fr', -13, -17, 26, 34, 10],
-    ['ks', 'M0 -12 V12', 2.6],
-    ['ks', 'M-9.5 -4 H9.5', 2.6],
-    ['ks', 'M-9.5 4 H9.5', 2.6],
-  ],
-
-  // Bottom half of a figure: pelvis, both legs bent at the knee, feet.
-  lower: [
-    ['s', 'M-8 -13 H8', 7],
-    ['s', 'M-8 -13 L-11 -2 L-5 3 L-7 14 L-12.5 14', 5.5],
-    ['s', 'M8 -13 L11 -2 L5 3 L7 14 L12.5 14', 5.5],
+  // A workout is a workout. Which body part it was is now a label beneath the
+  // circle, the same way a run's character is. One glyph, four sub-types.
+  dumbbell: [
+    ['fr', -18, -11, 7.5, 22, 3],
+    ['fr', 10.5, -11, 7.5, 22, 3],
+    ['fr', -10.5, -4, 21, 8, 2],
+    ['fr', -22, -6.5, 4, 13, 2],
+    ['fr', 18, -6.5, 4, 13, 2],
   ],
 
   hiit: [
@@ -90,9 +77,13 @@ export const ICONS = {
     ['s', 'M-14 8 Q0 12 14 8', 3.4],
   ],
 
-  // A jersey, not a ball. A round icon inside a round badge has no silhouette.
+  // A filled disc with knocked-out seams, not an outlined ball. The solid mass
+  // is what gives it presence inside a circular badge — an outlined ring at
+  // this size reads as nothing at all.
   sport: [
-    ['f', 'M-8 -15 L-19 -9.5 L-14.5 0.5 L-9 -2 L-9 17 L9 17 L9 -2 L14.5 0.5 L19 -9.5 L8 -15 Q0 -8.5 -8 -15 Z'],
+    ['fc', 0, 0, 15],
+    ['ks', 'M-13.5 -6.5 Q-4 0 -13.5 6.5', 3],
+    ['ks', 'M13.5 -6.5 Q4 0 13.5 6.5', 3],
   ],
 
   rest: [

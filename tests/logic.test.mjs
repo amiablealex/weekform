@@ -6,8 +6,9 @@
 
 import { defaultWeekStart, formatRange, formatRangeShort, mondayOf, toISO,
          addWeeks, relativeName, todayIndex } from '../static/js/week.js';
-import { metaFor, labelFor, resolve, columnCentres, MAX_PER_DAY,
-         GEO } from '../static/js/tokens.js';
+import { metaFor, labelFor, resolve, needsLabel, columnCentres, MAX_PER_DAY,
+         LIMITS, GEO, TYPE } from '../static/js/tokens.js';
+import { measure, fitSize, truncateTo } from '../static/js/render.js';
 
 let fails = 0;
 let count = 0;
@@ -81,14 +82,102 @@ eq(labelFor({ custom: '   ' }), '', 'whitespace is no label');
 eq(labelFor({}), '', 'no label');
 eq(resolve({ cat: 'cardio', sub: 'run' }).icon, 'run', 'run uses the shoe');
 eq(resolve({ cat: 'cardio', sub: 'run' }).acceptsMeta, true, 'cardio accepts a duration');
-eq(resolve({ cat: 'workout', sub: 'upper' }).acceptsMeta, false, 'workout does not');
+eq(resolve({ cat: 'workout', sub: 'strength' }).acceptsMeta, true, 'workout accepts one too');
+eq(resolve({ cat: 'mobility', sub: 'yoga' }).acceptsMeta, true, 'mobility accepts one too');
 eq(resolve({ cat: 'sport', sub: 'sport' }).acceptsMeta, true, 'sport accepts a duration');
-eq(resolve({ cat: 'mobility', sub: 'custom' }).icon, 'mobility', 'mobility custom shares its glyph');
-eq(resolve({ cat: 'workout', sub: 'custom' }).icon, 'custom', 'workout custom uses the spark');
+eq(resolve({ cat: 'cheat', sub: 'beer' }).acceptsMeta, false, 'cheat day does not');
+eq(resolve({ cat: 'rest', sub: 'rest' }).acceptsMeta, false, 'rest does not');
+eq(resolve({ cat: 'workout', sub: 'strength' }).icon, 'dumbbell', 'strength uses the dumbbell');
+eq(resolve({ cat: 'workout', sub: 'hiit' }).icon, 'hiit', 'HIIT keeps the stopwatch');
+eq(resolve({ cat: 'cardio', sub: 'custom' }).icon, 'custom', 'cardio custom uses the spark');
+eq(resolve({ cat: 'mobility', sub: 'custom' }).icon, 'custom', 'mobility custom uses the spark');
 eq(resolve({ cat: 'cardio', sub: 'nonsense' }).icon, 'run', 'unknown sub-type falls back');
 eq(resolve({ cat: 'nonsense', sub: 'x' }), null, 'unknown category is null');
 eq(resolve({ cat: 'rest', sub: 'rest' }).colours.glyph, '#767C83', 'tinted tier uses ink, not white');
 eq(resolve({ cat: 'cardio', sub: 'run' }).colours.glyph, '#FFFFFF', 'solid tier uses white');
+
+section('required labels');
+eq(needsLabel({ cat: 'cardio', sub: 'custom' }), true, 'a custom cardio must be named');
+eq(needsLabel({ cat: 'mobility', sub: 'custom' }), true, 'a custom mobility must be named');
+eq(needsLabel({ cat: 'cardio', sub: 'run', tag: 'custom' }), true, 'a custom run type must be named');
+eq(needsLabel({ cat: 'workout', sub: 'strength', tag: 'custom' }), true, 'a custom workout must be named');
+eq(needsLabel({ cat: 'cardio', sub: 'run', tag: 'easy' }), false, 'a preset tag needs nothing');
+eq(needsLabel({ cat: 'workout', sub: 'strength' }), false, 'an untagged workout needs nothing');
+eq(needsLabel({ cat: 'rest', sub: 'rest' }), false, 'a rest day needs nothing');
+eq(needsLabel({ cat: 'sport', sub: 'sport' }), false, 'sport takes an optional name');
+
+section('input limits');
+eq(LIMITS.label, 12, 'labels cap at 12 characters');
+eq(LIMITS.title, 22, 'titles cap at 22 characters');
+// 'lower body' is the longest preset label and must fit under the cap.
+eq('lower body'.length <= LIMITS.label, true, 'longest preset label fits the cap');
+
+section('text measurement — the label collision regression');
+// A fake canvas where every glyph is exactly 10 units wide. `native` mirrors a
+// browser with ctx.letterSpacing, where measureText already includes tracking
+// and appends one extra gap after the final glyph. Measuring in one mode and
+// drawing in the other is what pushed 'PHYSIOTHERAPY' into its neighbours.
+const GLYPH = 10;          // glyph advance at the reference size
+const REF = 18;            // ...which is this many px
+function fakeCanvas(native) {
+  globalThis.CanvasRenderingContext2D = native
+    ? class { set letterSpacing(v) {} get letterSpacing() { return '0px'; } }
+    : class {};
+  const ctx = {
+    font: '', _ls: 0,
+    save() {}, restore() {},
+    measureText(t) {
+      // Advance scales with font size, as a real canvas does. Tracking is an
+      // absolute px value and deliberately does not scale.
+      const size = parseFloat((/(\d+(?:\.\d+)?)px/.exec(this.font) || [])[1]) || REF;
+      const n = [...t].length;
+      return { width: n * GLYPH * (size / REF) + (native ? this._ls * n : 0) };
+    },
+  };
+  if (native) {
+    Object.defineProperty(ctx, 'letterSpacing', {
+      get() { return `${this._ls}px`; },
+      set(v) { this._ls = parseFloat(v) || 0; },
+    });
+  }
+  return ctx;
+}
+// What drawText will actually put on the canvas: n glyphs and n-1 gaps.
+const drawnWidth = (text, tracking) =>
+  [...text].length * GLYPH + tracking * ([...text].length - 1);   // at REF size
+
+const spec = { font: 'body', size: 18, weight: 500, tracking: 1.6 };
+for (const native of [true, false]) {
+  const ctx = fakeCanvas(native);
+  const mode = native ? 'native tracking' : 'manual tracking';
+  for (const text of ['EASY', 'LOWER BODY', 'PHYSIOTHERAP', 'WWWWWWWWWWWW']) {
+    eq(Math.round(measure(ctx, text, spec.tracking) * 100) / 100,
+       Math.round(drawnWidth(text, spec.tracking) * 100) / 100,
+       `${mode}: "${text}" measures as it draws`);
+  }
+  eq(measure(ctx, 'ABC', 0), 30, `${mode}: no tracking measures plainly`);
+}
+// Both paths must agree with each other, or the bug returns on one platform.
+eq(measure(fakeCanvas(true), 'PHYSIOTHERAP', 1.6),
+   measure(fakeCanvas(false), 'PHYSIOTHERAP', 1.6),
+   'both code paths agree');
+
+section('row-wide sizing keeps labels inside their column');
+const pitch = (GEO.width - GEO.padX * 2) / 7;
+const labelMax = pitch - 18;
+{
+  const ctx = fakeCanvas(true);
+  // The widest label the picker will accept, at the real column width.
+  const worst = 'W'.repeat(LIMITS.label);
+  const size = fitSize(ctx, ['EASY', worst, 'CORE'], TYPE.label, labelMax, 13);
+  eq(size <= TYPE.label.size, true, 'a long label pulls the row size down');
+  eq(size >= 13, true, 'but never below the floor');
+  eq(truncateTo(ctx, worst, TYPE.label, size, labelMax), worst,
+    'the longest allowed label is not truncated');
+  // Every label in the row shares one size, so none can overflow on its own.
+  const short = fitSize(ctx, ['EASY'], TYPE.label, labelMax, 13);
+  eq(short, TYPE.label.size, 'a row of short labels stays at full size');
+}
 
 section('geometry invariants');
 const c = columnCentres();
