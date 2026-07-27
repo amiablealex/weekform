@@ -9,8 +9,8 @@
 import { GEO, columnCentres, BRAND } from './tokens.js';
 import { renderStrip, renderToCanvas, toBlob, loadFonts } from './render.js';
 import { formatRangeShort, relativeName, addWeeks, formatRange } from './week.js';
-import { emptyState, emptyDays, sanitise, saveLocal, loadLocal,
-         readHash, writeHash, shareUrl, isEmpty } from './state.js';
+import { emptyState, emptyDays, sanitise, saveWeek, loadWeek, lastVisitedWeek,
+         hasStoredWeek, readHash, writeHash, shareUrl, isEmpty } from './state.js';
 import { openDay, openWeek, openTitle, close as closeSheet } from './sheet.js';
 
 const $ = (id) => document.getElementById(id);
@@ -33,6 +33,23 @@ let state = emptyState();
 // handler synchronous.
 let readyFile = null;
 let renderToken = 0;
+
+/**
+ * Whether this browser can hand a file to the OS share sheet.
+ *
+ * It cannot outside a secure context, so plain http — a Tailscale address, or
+ * a LAN IP during development — always falls back to a download. Desktop
+ * browsers largely do not support file sharing at all. Rather than offering a
+ * Share button that quietly downloads instead, the label says what will happen.
+ */
+function canShareFiles() {
+  try {
+    const probe = new File([new Uint8Array([0])], 'probe.png', { type: 'image/png' });
+    return Boolean(navigator.canShare && navigator.canShare({ files: [probe] }));
+  } catch {
+    return false;
+  }
+}
 
 // --- toast -----------------------------------------------------------------
 
@@ -144,9 +161,25 @@ function paint() {
 
 function applyChange() {
   state = sanitise(state);
-  saveLocal(state);
+  saveWeek(state);
   writeHash(state);
   paint();
+}
+
+/**
+ * Move to another week, keeping what is on screen.
+ *
+ * Weeks are stored separately, so stepping back to last week shows last week —
+ * not this week's circles relabelled. A week nobody has touched opens empty but
+ * inherits the current title, so somebody who has named their strip does not
+ * have to name it again every time they navigate.
+ */
+function goToWeek(target) {
+  saveWeek(state);
+  const stored = loadWeek(target);
+  state = stored || { ...emptyState(target), title: state.title };
+  state.weekStart = target;
+  applyChange();
 }
 
 // --- actions ---------------------------------------------------------------
@@ -223,6 +256,7 @@ function onClear() {
     return;
   }
   disarmClear();
+  // Clears the week on screen only. The others stay where they are.
   state.days = emptyDays();
   state.title = BRAND.defaultTitle;
   applyChange();
@@ -237,17 +271,23 @@ function disarmClear() {
 }
 
 function step(weeks) {
-  state.weekStart = addWeeks(state.weekStart, weeks);
-  applyChange();
+  goToWeek(addWeeks(state.weekStart, weeks));
 }
 
 // --- boot ------------------------------------------------------------------
 
 function initialState() {
+  // A shared link wins: somebody following one wants to see that week, not
+  // whatever they were last editing themselves. It is only written to the
+  // archive once they actually change something.
   const fromUrl = readHash();
   if (fromUrl) return fromUrl;
-  const stored = loadLocal();
-  if (stored) return stored;
+
+  const last = lastVisitedWeek();
+  if (last) {
+    const stored = loadWeek(last);
+    if (stored) return stored;
+  }
   return emptyState();
 }
 
@@ -266,9 +306,11 @@ async function boot() {
   }
   paint();
 
+  if (!canShareFiles()) shareBtn.textContent = 'Save image';
+
   $('week-prev').addEventListener('click', () => step(-1));
   $('week-next').addEventListener('click', () => step(1));
-  weekBtn.addEventListener('click', () => openWeek(state, applyChange));
+  weekBtn.addEventListener('click', () => openWeek(state, goToWeek, hasStoredWeek));
   shareBtn.addEventListener('click', onShare);
   copyBtn.addEventListener('click', onCopy);
   clearBtn.addEventListener('click', onClear);
@@ -278,7 +320,6 @@ async function boot() {
     if (incoming) {
       state = incoming;
       closeSheet();
-      saveLocal(state);
       paint();
     }
   });

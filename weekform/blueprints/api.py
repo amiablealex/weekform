@@ -59,8 +59,18 @@ def record_share():
 
 @bp.get("/healthz")
 def healthz():
+    """Liveness, not database status.
+
+    The strip is built entirely in the browser, so the site does no less for a
+    visitor when the database is unreachable — only the counter stops. Failing
+    this check would take a working site offline over a broken counter, so the
+    database is reported rather than enforced.
+    """
+    database_ok = True
     try:
         db.session.execute(db.text("SELECT 1"))
-        return jsonify(ok=True)
     except Exception:
-        return jsonify(ok=False), 503
+        db.session.rollback()
+        database_ok = False
+        current_app.logger.warning("health check could not reach the database")
+    return jsonify(ok=True, database=database_ok)

@@ -9,8 +9,20 @@ import { defaultWeekStart, formatRange, formatRangeShort, mondayOf, toISO,
 import { metaFor, labelFor, resolve, needsLabel, columnCentres, MAX_PER_DAY,
          LIMITS, GEO, TYPE } from '../static/js/tokens.js';
 import { measure, fitSize, truncateTo } from '../static/js/render.js';
-import { emptyState, sanitise, encodeState, decodeState,
-         isEmpty, countActivities } from '../static/js/state.js';
+// A localStorage stub, installed before state.js loads so the archive has
+// somewhere to live. Node has no DOM; the archive is pure logic otherwise.
+globalThis.localStorage = (() => {
+  let store = new Map();
+  return {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+    clear: () => { store = new Map(); },
+  };
+})();
+const { emptyState, emptyDays, sanitise, encodeState, decodeState,
+        isEmpty, countActivities, saveWeek, loadWeek, lastVisitedWeek,
+        hasStoredWeek, storedWeekStarts } = await import('../static/js/state.js');
 
 let fails = 0;
 let count = 0;
@@ -249,6 +261,69 @@ eq(decodeState(btoa('{"v":99}')), null, 'a future format is refused');
 eq(isEmpty(emptyState()), true, 'a fresh week is empty');
 eq(sanitise(null).days.length, 7, 'null sanitises to a fresh week');
 eq(sanitise('nonsense').title, 'My Week', 'a string sanitises to a fresh week');
+
+section('weeks are stored separately');
+{
+  localStorage.clear();
+  const runWeek = {
+    title: 'My Week', weekStart: '2026-07-20',
+    days: [[{ cat: 'cardio', sub: 'run', tag: 'easy', amount: 5, unit: 'km' }],
+           [], [], [], [], [], []],
+  };
+  const gymWeek = {
+    title: 'Gym Block', weekStart: '2026-07-13',
+    days: [[{ cat: 'workout', sub: 'strength', tag: 'chest' }],
+           [{ cat: 'workout', sub: 'hiit' }], [], [], [], [], []],
+  };
+  saveWeek(runWeek);
+  saveWeek(gymWeek);
+
+  const backRun = loadWeek('2026-07-20');
+  const backGym = loadWeek('2026-07-13');
+  eq(backRun.days[0][0].sub, 'run', 'the later week keeps its own activity');
+  eq(backGym.days[0][0].tag, 'chest', 'the earlier week keeps its own');
+  eq(backGym.days[1][0].sub, 'hiit', 'and all of it');
+  eq(backRun.title, 'My Week', 'titles are per week');
+  eq(backGym.title, 'Gym Block', 'including a renamed one');
+  eq(countActivities(backRun), 1, 'weeks do not bleed into each other');
+  eq(loadWeek('2026-06-01'), null, 'an untouched week is null, not empty data');
+  eq(lastVisitedWeek(), '2026-07-13', 'the last saved week is remembered');
+  eq(hasStoredWeek('2026-07-20'), true, 'a stored week is marked');
+  eq(hasStoredWeek('2026-06-01'), false, 'an unstored week is not');
+  eq(storedWeekStarts().length, 2, 'two weeks on file');
+
+  // Editing one week must not disturb another.
+  saveWeek({ ...runWeek, days: emptyDays(), title: 'My Week' });
+  eq(loadWeek('2026-07-20'), null, 'clearing a week removes it');
+  eq(loadWeek('2026-07-13').days[0][0].tag, 'chest', 'the other week is untouched');
+}
+{
+  localStorage.clear();
+  // The archive must not grow without bound.
+  for (let i = 0; i < 60; i++) {
+    saveWeek({
+      title: 'My Week', weekStart: addWeeks('2026-07-20', -i),
+      days: [[{ cat: 'rest', sub: 'rest' }], [], [], [], [], [], []],
+    });
+  }
+  const kept = storedWeekStarts();
+  eq(kept.length <= 40, true, `archive pruned to ${kept.length} weeks`);
+  eq(kept.includes('2026-07-20'), true, 'the most recent week survives pruning');
+  eq(kept.includes(addWeeks('2026-07-20', -59)), false, 'the oldest is dropped');
+}
+{
+  // A save from the previous single-week format is folded in, once.
+  localStorage.clear();
+  localStorage.setItem('weekform.week.v1', JSON.stringify({
+    title: 'Old Week', weekStart: '2026-06-01',
+    days: [[{ cat: 'cardio', sub: 'bike', amount: 30, unit: 'min' }],
+           [], [], [], [], [], []],
+  }));
+  const migrated = loadWeek('2026-06-01');
+  eq(migrated !== null, true, 'the old save is rescued');
+  eq(migrated.days[0][0].sub, 'bike', 'with its contents intact');
+  eq(localStorage.getItem('weekform.week.v1'), null, 'and the old key retired');
+}
 
 section('geometry invariants');
 const c = columnCentres();

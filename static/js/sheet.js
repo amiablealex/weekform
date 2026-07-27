@@ -323,7 +323,7 @@ function renderDetail(body, index, state, onChange, heading, catId) {
 
 // --- week sheet ------------------------------------------------------------
 
-export function openWeek(state, onChange) {
+export function openWeek(state, onPick, hasData = () => false) {
   open('Choose a week', (body) => {
     const today = new Date();
     const current = toISO(mondayOf(today));
@@ -336,12 +336,20 @@ export function openWeek(state, onChange) {
       const row = el('button', 'week-row');
       row.type = 'button';
       if (weekStart === state.weekStart) row.classList.add('is-on');
-      row.appendChild(el('span', 'week-range', formatRangeShort(weekStart)));
+
+      const left = el('span', 'week-left');
+      // A quiet mark on weeks that already hold something, so scrolling back
+      // does not mean opening each one to find out.
+      const dot = el('span', 'week-dot');
+      if (hasData(weekStart)) dot.classList.add('is-on');
+      left.appendChild(dot);
+      left.appendChild(el('span', 'week-range', formatRangeShort(weekStart)));
+      row.appendChild(left);
+
       const name = relativeName(weekStart, today);
       if (name) row.appendChild(el('span', 'week-rel', name));
       row.addEventListener('click', () => {
-        state.weekStart = weekStart;
-        onChange();
+        onPick(weekStart);
         close();
       });
       list.appendChild(row);

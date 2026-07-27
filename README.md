@@ -45,24 +45,46 @@ python3 -m http.server 8000     # then /harness.html
 node tests/logic.test.mjs
 ```
 
-128 assertions covering the date rules, duration formatting, taxonomy
-resolution, text measurement and the URL state encoding — including what
-happens when somebody hand-edits a link. No npm dependencies; `package.json`
-exists only so Node treats the `.js` files as modules.
+147 assertions covering the date rules, duration formatting, taxonomy
+resolution, text measurement, per-week storage and the URL state encoding —
+including what happens when somebody hand-edits a link.
+
+There are no npm dependencies. The `package.json` in `static/js/` exists only so
+Node treats the sibling `.js` files as ES modules, and it lives in that
+directory rather than at the repo root on purpose: a root `package.json` makes
+build systems conclude this is a Node project. That is exactly how the first
+Railway deploy failed.
 
 ## Deploying to Railway
 
+The repo ships a `Dockerfile`, and Railway uses it in preference to guessing.
+That is deliberate — build detection is one more thing that can be wrong at the
+least convenient moment.
+
 1. Push to GitHub.
-2. New project in Railway, deploy from the repo. Nixpacks reads
-   `requirements.txt` and `Procfile` without further configuration.
+2. New project in Railway, deploy from the repo. It will pick up the Dockerfile
+   without further configuration.
 3. Add a Postgres service to the same project. `DATABASE_URL` appears
    automatically; the app rewrites the legacy `postgres://` scheme it hands out.
+   Without one it falls back to SQLite, which works but is wiped on every
+   deploy — fine for a first look, not for keeping a count.
 4. Set `ADMIN_USER` and `ADMIN_PASSWORD`. Until `ADMIN_PASSWORD` exists, `/admin`
    returns 503 rather than opening — a deploy that forgets it should not quietly
    publish its own stats.
 5. Point the custom domain at the service and add the CNAME Railway gives you.
 
-Health checks hit `/api/healthz`, which also confirms the database is reachable.
+To run the image the same way locally:
+
+```bash
+docker build -t weekform .
+docker run --rm -p 8000:8000 -e ADMIN_PASSWORD=x weekform
+```
+
+Health checks hit `/api/healthz`. It reports whether the database is reachable
+but does not fail when it is not: the strip is built entirely in the browser, so
+a visitor loses nothing when the database is down except the share counter.
+Failing the check would take a working site offline over a broken tally. For the
+same reason, a database that is missing at boot is logged rather than fatal.
 
 ## Files
 
@@ -109,6 +131,12 @@ visibly smaller than the rest.
 about 38px across. The transparent zones over them are the full column, roughly
 55×80px, comfortably past the 44px minimum.
 
+**Each week is stored separately.** Weeks are kept on the device keyed by their
+Monday, so stepping back to last week shows last week rather than this week's
+circles relabelled. Forty weeks are retained, then the oldest are dropped. An
+untouched week is not given a slot at all, and a week you clear releases its
+slot again. The picker marks weeks that already hold something.
+
 **Empty days render as rest, and say so in the editor.** The day stays empty in
 state, and the editor draws a dashed ring over it. The export is drawn on a
 separate canvas, so that marker never reaches the image.
@@ -118,12 +146,34 @@ separate canvas, so that marker never reaches the image.
 inside the click handler loses it — the share sheet then silently never opens.
 The PNG is rendered on every change so the handler stays synchronous.
 
+## Sharing needs HTTPS
+
+`navigator.share` only exists in a secure context, so plain http — a LAN address
+or a Tailscale IP during development — always falls back to downloading the PNG.
+Most desktop browsers do not implement file sharing at all. The button reads
+"Save image" rather than "Share" when that is what will happen.
+
+To test the real share sheet before deploying:
+
+```bash
+sudo tailscale serve --bg 8000
+```
+
+which serves the app over HTTPS on your tailnet.
+
 ## Privacy
 
 One table, three columns: when a strip was shared, on which day, and whether it
 went through the native share sheet or a download. No addresses, no user agents,
 nothing about the strip's contents. The week never leaves the browser, so it
 could not be recorded even if somebody wanted it to be.
+
+Which also sets the limit of what the app can currently promise: weeks live in
+`localStorage` and in the link, and nothing else. Clearing site data clears
+them, and a week entered on a phone is not on a laptop. The page says as much
+under the strip rather than leaving people to find out. Real history across
+devices needs accounts, and that is a decision to take deliberately rather than
+by drifting into it.
 
 Fonts currently load from Google's CDN, which does mean visitors' addresses
 reach Google. Self-hosting is one script and one line of CSS away if that

@@ -1,0 +1,4 @@
+{
+  "//": "Present only so Node treats the sibling .js files as ES modules when running tests. Scoped to this directory deliberately: a package.json at the repo root makes build systems think this is a Node project, which it is not.",
+  "type": "module"
+}

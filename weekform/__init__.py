@@ -27,7 +27,14 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
 
     db.init_app(app)
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception:
+            # A database that is missing or still waking up should not stop the
+            # site coming up. Making strips needs no database at all — only the
+            # share counter does — so the page stays useful and /api/healthz
+            # reports the problem instead of the container dying at boot.
+            app.logger.exception("could not prepare the database")
 
     from .blueprints.main import bp as main_bp
     from .blueprints.api import bp as api_bp

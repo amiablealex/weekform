@@ -12,25 +12,34 @@
 // URL somebody could have edited, hence `sanitise` below.
 // ---------------------------------------------------------------------------
 
-import { BRAND, CATEGORIES, MAX_PER_DAY, LIMITS, UNITS,
+import { BRAND, MAX_PER_DAY, LIMITS, UNITS,
          category, subType } from './tokens.js';
 import { defaultWeekStart, toISO, parseISO, mondayOf } from './week.js';
 
-const STORAGE_KEY = 'weekform.week.v1';
+const ARCHIVE_KEY = 'weekform.weeks.v2';
+const LEGACY_KEY = 'weekform.week.v1';
 const FORMAT = 1;
 
+// How many weeks to keep on the device. Well past anything anyone will scroll
+// back to, and small enough that localStorage never becomes a problem.
+const KEEP_WEEKS = 40;
+
+// Units a saved activity is allowed to carry. Anything else came from a
+// hand-edited link and gets dropped along with its amount.
 const ALL_UNITS = [...UNITS.time, ...UNITS.distance];
 
-export function emptyState() {
-  return {
-    title: BRAND.defaultTitle,
-    weekStart: defaultWeekStart(),
-    days: [[], [], [], [], [], [], []],
-  };
-}
+// --- constructors ----------------------------------------------------------
 
 export function emptyDays() {
   return [[], [], [], [], [], [], []];
+}
+
+export function emptyState(weekStart) {
+  return {
+    title: BRAND.defaultTitle,
+    weekStart: weekStart || defaultWeekStart(),
+    days: emptyDays(),
+  };
 }
 
 // --- validation ------------------------------------------------------------
@@ -150,21 +159,91 @@ export function decodeState(encoded) {
 
 // --- persistence -----------------------------------------------------------
 
-export function saveLocal(state) {
+function readArchive() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const raw = localStorage.getItem(ARCHIVE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed === 'object' && parsed.weeks) return parsed;
+  } catch {
+    // Corrupt or unavailable. Start fresh rather than failing.
+  }
+  return { weeks: {}, last: null };
+}
+
+function writeArchive(archive) {
+  try {
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archive));
   } catch {
     // Private browsing, or storage full. Not worth interrupting anyone over.
   }
 }
 
-export function loadLocal() {
+/** Fold a v1 single-week save into the archive, once. */
+function migrateLegacy(archive) {
+  let raw;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? sanitise(JSON.parse(raw)) : null;
+    raw = localStorage.getItem(LEGACY_KEY);
   } catch {
-    return null;
+    return archive;
   }
+  if (!raw) return archive;
+  try {
+    const old = sanitise(JSON.parse(raw));
+    if (!archive.weeks[old.weekStart]) {
+      archive.weeks[old.weekStart] = { title: old.title, days: old.days };
+      archive.last = old.weekStart;
+    }
+  } catch {
+    // Nothing worth rescuing.
+  }
+  try {
+    localStorage.removeItem(LEGACY_KEY);
+  } catch { /* ignore */ }
+  return archive;
+}
+
+function prune(archive) {
+  const keys = Object.keys(archive.weeks).sort();
+  if (keys.length <= KEEP_WEEKS) return archive;
+  for (const key of keys.slice(0, keys.length - KEEP_WEEKS)) {
+    delete archive.weeks[key];
+  }
+  return archive;
+}
+
+/** Store a week under its own date. An untouched week is not worth a slot. */
+export function saveWeek(state) {
+  const archive = readArchive();
+  if (isEmpty(state) && state.title === BRAND.defaultTitle) {
+    delete archive.weeks[state.weekStart];
+  } else {
+    archive.weeks[state.weekStart] = { title: state.title, days: state.days };
+  }
+  archive.last = state.weekStart;
+  writeArchive(prune(archive));
+}
+
+/** The stored week for a date, or null if that week was never touched. */
+export function loadWeek(weekStart) {
+  const archive = migrateLegacy(readArchive());
+  const stored = archive.weeks[weekStart];
+  if (!stored) return null;
+  return sanitise({ ...stored, weekStart });
+}
+
+/** The week the person was last editing, if any. */
+export function lastVisitedWeek() {
+  const archive = migrateLegacy(readArchive());
+  return archive.last || null;
+}
+
+export function storedWeekStarts() {
+  return Object.keys(migrateLegacy(readArchive()).weeks).sort();
+}
+
+/** True when this date already holds something. Used to mark the week list. */
+export function hasStoredWeek(weekStart) {
+  return Boolean(migrateLegacy(readArchive()).weeks[weekStart]);
 }
 
 export function readHash() {
@@ -192,4 +271,3 @@ export function countActivities(state) {
   return state.days.reduce((n, day) => n + day.length, 0);
 }
 
-export { CATEGORIES, MAX_PER_DAY, LIMITS };
