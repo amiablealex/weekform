@@ -7,7 +7,7 @@ from functools import wraps
 
 from flask import Blueprint, Response, current_app, render_template
 
-from ..models import counts_by_kind, daily_counts, shares_since, total_shares
+from ..models import counts_by_kind, daily_counts, db, shares_since, total_shares
 
 bp = Blueprint("admin", __name__)
 
@@ -48,13 +48,26 @@ def requires_admin(view):
     return wrapped
 
 
+def _database_ok() -> bool:
+    try:
+        db.session.execute(db.text("SELECT 1"))
+        return True
+    except Exception:
+        db.session.rollback()
+        return False
+
+
 @bp.get("/admin")
 @requires_admin
 def dashboard() -> str:
+    if not _database_ok():
+        return render_template("admin.html", database_ok=False, total=0, today=0,
+                               last_7=0, last_30=0, by_kind={}, days=[], peak=0)
     days = daily_counts(30)
     peak = max((count for _, count in days), default=0)
     return render_template(
         "admin.html",
+        database_ok=True,
         total=total_shares(),
         today=shares_since(1),
         last_7=shares_since(7),

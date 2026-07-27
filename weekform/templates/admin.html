@@ -42,6 +42,12 @@
           font-size: 11.5px; color: var(--faint); }
   .split { margin-top: 26px; font-size: 13.5px; color: var(--soft); }
   .split span { font-variant-numeric: tabular-nums; }
+  .warn { margin: 0 0 24px; padding: 12px 14px; border-radius: 10px;
+          background: #fdece8; border: 1px solid #f3c4b8; color: #8e3b34;
+          font-size: 14px; }
+  @media (prefers-color-scheme: dark) {
+    .warn { background: #2a1a17; border-color: #5a2f28; color: #f0afa8; }
+  }
   .note { margin-top: 30px; font-size: 12.5px; color: var(--faint); max-width: 46em; }
 </style>
 </head>
@@ -50,6 +56,11 @@
 
   <h1>Usage</h1>
   <p class="sub">Strips shared. Nothing else is recorded.</p>
+
+  {% if not database_ok %}
+    <p class="warn">The database is unreachable. The site is still working —
+      strips are built in the browser — but shares are not being counted.</p>
+  {% else %}
 
   <dl class="cards">
     <div class="card"><dt>All time</dt><dd>{{ total }}</dd></div>
@@ -75,6 +86,8 @@
     Native share sheet <span>{{ by_kind.get('share', 0) }}</span> ·
     Downloaded instead <span>{{ by_kind.get('download', 0) }}</span>
   </p>
+
+  {% endif %}
 
   <p class="note">
     A high download share means the native sheet is unavailable — usually

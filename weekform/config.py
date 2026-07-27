@@ -34,10 +34,21 @@ def _bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _engine_options() -> dict:
+    options: dict = {"pool_pre_ping": True}
+    if _database_uri().startswith("postgresql"):
+        # Without a connect timeout, a database that is cold or unreachable
+        # leaves every gunicorn worker blocked on the socket during start-up.
+        # The container then looks alive while answering nothing, which is
+        # indistinguishable from a crash until you read the logs.
+        options["connect_args"] = {"connect_timeout": 5}
+    return options
+
+
 class Config:
     SQLALCHEMY_DATABASE_URI = _database_uri()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
+    SQLALCHEMY_ENGINE_OPTIONS = _engine_options()
 
     # Only used for flash messaging and the like; there are no sessions and no
     # cookies, so this is future-proofing rather than a live secret.

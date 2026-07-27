@@ -80,11 +80,23 @@ docker build -t weekform .
 docker run --rm -p 8000:8000 -e ADMIN_PASSWORD=x weekform
 ```
 
-Health checks hit `/api/healthz`. It reports whether the database is reachable
-but does not fail when it is not: the strip is built entirely in the browser, so
-a visitor loses nothing when the database is down except the share counter.
-Failing the check would take a working site offline over a broken tally. For the
-same reason, a database that is missing at boot is logged rather than fatal.
+Health checks hit `/api/healthz`, which touches nothing and answers
+immediately. An earlier version queried the database, and when the database was
+cold that query blocked for thirteen seconds — long enough for Railway's health
+check to time out and refuse the deploy while the site itself was serving
+perfectly. A liveness check a dependency can make slow is not a liveness check.
+
+Database reachability is shown on `/admin` instead, and `/api/share` fails
+loudly on its own. A database missing at boot is logged rather than fatal: the
+strip is built entirely in the browser, so a visitor loses nothing but the
+counter.
+
+The Dockerfile has no `EXPOSE` on purpose. Railway derives a service's target
+port from `EXPOSE` when present while separately injecting `PORT`, and if the
+two disagree the container binds one port while health checks hit another.
+Without it, `PORT` is the single answer. `start.sh` logs the port and the
+configuration it found before handing over to gunicorn, so the deploy log says
+what happened.
 
 ## Files
 

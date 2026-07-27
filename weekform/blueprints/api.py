@@ -59,18 +59,16 @@ def record_share():
 
 @bp.get("/healthz")
 def healthz():
-    """Liveness, not database status.
+    """Liveness. Touches nothing.
 
-    The strip is built entirely in the browser, so the site does no less for a
-    visitor when the database is unreachable — only the counter stops. Failing
-    this check would take a working site offline over a broken counter, so the
-    database is reported rather than enforced.
+    This deliberately does not query the database. An earlier version did, and
+    when the database was cold the query blocked for thirteen seconds — long
+    enough for the platform's health check to time out and refuse to release a
+    deploy, while the site itself was serving perfectly. A liveness check that
+    can be made slow by a dependency is not a liveness check.
+
+    Database reachability is reported on the admin page, where somebody is
+    actually looking, and a broken database already degrades loudly at
+    /api/share.
     """
-    database_ok = True
-    try:
-        db.session.execute(db.text("SELECT 1"))
-    except Exception:
-        db.session.rollback()
-        database_ok = False
-        current_app.logger.warning("health check could not reach the database")
-    return jsonify(ok=True, database=database_ok)
+    return jsonify(ok=True)

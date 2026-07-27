@@ -1,32 +1,28 @@
-# Railway will use this in preference to guessing.
-#
-# The previous deploy failed because a package.json sat at the repo root purely
-# to satisfy the test runner, and the builder concluded this was a Node project.
-# An explicit Dockerfile removes the detection heuristics altogether.
+# Explicit, so nothing has to be guessed about how this is built or started.
 
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore
 
 WORKDIR /app
 
-# Dependencies first so a code change does not reinstall them.
+# Dependencies first, so a code change does not reinstall them.
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 COPY . .
-
-RUN useradd --create-home --shell /usr/sbin/nologin app \
+RUN chmod +x start.sh \
+    && useradd --create-home app \
     && chown -R app:app /app
 USER app
 
-EXPOSE 8000
+# Deliberately no EXPOSE. Railway derives a service's target port from EXPOSE
+# when it is present, while separately injecting PORT — and if those two
+# disagree, the container binds one port while health checks hit another and
+# the deploy never goes healthy. With no EXPOSE, PORT is the single answer.
 
-# Shell form so ${PORT} expands. Railway injects it; 8000 is for running the
-# image locally.
-CMD gunicorn "weekform:create_app()" \
-      --bind "0.0.0.0:${PORT:-8000}" \
-      --workers 2 --threads 4 --timeout 30 --access-logfile -
+CMD ["./start.sh"]
