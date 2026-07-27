@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import { resolve } from './tokens.js';
-import { iconBadgeSvg } from './icons.js';
+import { iconMarkup } from './icons.js';
 import { toISO, mondayOf, formatRangeShort } from './week.js';
 import { sanitise, encodeState, loadWeek, storedWeekStarts } from './state.js';
 import { fetchAll, isSignedIn } from './sync.js';
@@ -48,13 +48,39 @@ async function load() {
   }
 }
 
-function dayMark(weekStart, index) {
+function dayEntries(weekStart, index) {
   const week = weeks[weekStart];
   const entries = week && week.days ? week.days[index] : null;
   if (!entries || !entries.length) return null;
-  const resolved = resolve(entries[0]);
-  if (!resolved) return null;
-  return resolved;
+  const primary = resolve(entries[0]);
+  if (!primary) return null;
+  return { primary, secondary: entries[1] ? resolve(entries[1]) : null };
+}
+
+/**
+ * A day's mark, stacked the same way the strip stacks it: the second activity
+ * sits behind and offset up-right, showing only its colour, separated by a ring
+ * in the surface colour so two similar colours do not merge into one blob.
+ *
+ * The ring uses a CSS variable rather than white, because unlike the exported
+ * image this is drawn on a page that has a dark mode.
+ */
+function dayMarkSvg({ primary, secondary }) {
+  const cx = secondary ? 44 : 50;
+  const cy = secondary ? 56 : 50;
+  const r = secondary ? 38 : 42;
+  const scale = (0.52 * r * 2) / 44;
+
+  const parts = [];
+  if (secondary) {
+    parts.push(`<circle cx="${cx + 16}" cy="${cy - 14}" r="${r}" fill="${secondary.colours.fill}"/>`);
+    parts.push(`<circle cx="${cx}" cy="${cy}" r="${r + 3}" fill="var(--surface)"/>`);
+  }
+  parts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${primary.colours.fill}"/>`);
+  parts.push(`<g transform="translate(${cx},${cy}) scale(${scale})">` +
+    iconMarkup(primary.icon, primary.colours.glyph, primary.colours.fill) + `</g>`);
+
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">${parts.join('')}</svg>`;
 }
 
 function render() {
@@ -97,11 +123,11 @@ function render() {
 
       cell.appendChild(el('span', 'cal-num', String(date.getDate())));
 
-      const mark = dayMark(weekStart, i);
+      const mark = dayEntries(weekStart, i);
       if (mark) {
         const badge = el('span', 'cal-mark');
-        badge.innerHTML = iconBadgeSvg(mark.icon, mark.colours.glyph,
-          mark.colours.fill, 0.52, 34);
+        badge.innerHTML = dayMarkSvg(mark);
+        if (mark.secondary) badge.classList.add('is-stacked');
         cell.appendChild(badge);
       } else {
         cell.appendChild(el('span', 'cal-empty'));

@@ -240,6 +240,10 @@
 
 .cal-mark svg { display: block; width: 100%; height: auto; }
 
+/* A stacked day carries two colours in the same box, so it gets slightly more
+   room than a single one. */
+.cal-mark.is-stacked { max-width: 38px; }
+
 .cal-empty {
   width: 12px;
   height: 12px;

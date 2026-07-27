@@ -126,7 +126,12 @@ function renderDayRoot(body, index, state, onChange, heading) {
     entries.forEach((activity, position) => {
       const res = resolve(activity);
       const item = el('li', 'entry');
-      item.appendChild(badge(res.icon, res.colours, 36));
+
+      // The whole row opens the activity for editing. Changing 5km to 6km
+      // should not mean deleting it and starting again.
+      const open = el('button', 'entry-open');
+      open.type = 'button';
+      open.appendChild(badge(res.icon, res.colours, 36));
 
       const text = el('div', 'entry-text');
       const cat = category(activity.cat);
@@ -136,7 +141,35 @@ function renderDayRoot(body, index, state, onChange, heading) {
       const detail = [labelFor(activity).toLowerCase(), metaFor(activity)]
         .filter(Boolean).join(' · ');
       if (detail) text.appendChild(el('span', 'entry-detail', detail));
-      item.appendChild(text);
+      else if (entries.length > 1 && position === 0) {
+        text.appendChild(el('span', 'entry-detail', 'on top'));
+      }
+      open.appendChild(text);
+      open.setAttribute('aria-label', `Edit ${name}`);
+      open.addEventListener('click', () => {
+        renderDetail(body, index, state, onChange, heading, activity.cat,
+          { position, activity });
+      });
+      item.appendChild(open);
+
+      // Only the second one can be promoted; the first is already on top.
+      if (position > 0) {
+        const promote = el('button', 'entry-promote');
+        promote.type = 'button';
+        promote.title = 'Show this one on top';
+        promote.setAttribute('aria-label', `Show ${name} on top`);
+        promote.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">' +
+          '<path d="M12 19 V6 M6 11.5 L12 5.5 L18 11.5" fill="none" ' +
+          'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+          'stroke-linejoin="round"/></svg>';
+        promote.addEventListener('click', () => {
+          const [moved] = entries.splice(position, 1);
+          entries.unshift(moved);
+          onChange();
+          renderDayRoot(body, index, state, onChange, heading);
+        });
+        item.appendChild(promote);
+      }
 
       const remove = el('button', 'entry-remove');
       remove.type = 'button';
@@ -157,13 +190,13 @@ function renderDayRoot(body, index, state, onChange, heading) {
 
   if (entries.length >= MAX_PER_DAY) {
     body.appendChild(el('p', 'sheet-note',
-      `Two activities is the limit for one day.`));
+      'Two activities is the limit for one day.'));
     return;
   }
 
   if (entries.length) body.appendChild(el('h3', 'sheet-sub', 'Add another'));
   body.appendChild(categoryGrid((catId) => {
-    renderDetail(body, index, state, onChange, heading, catId);
+    renderDetail(body, index, state, onChange, heading, catId, null);
   }));
 }
 
@@ -182,16 +215,31 @@ function categoryGrid(onPick) {
 
 // --- activity detail -------------------------------------------------------
 
-function renderDetail(body, index, state, onChange, heading, catId) {
+/**
+ * The add-and-edit form. `editing` is null when adding, or
+ * { position, activity } when changing one that already exists — in which case
+ * the draft starts from that activity and saving replaces it in place.
+ */
+function renderDetail(body, index, state, onChange, heading, catId, editing) {
   const cat = category(catId);
-  const draft = {
-    cat: catId,
-    sub: cat.subs[0].id,
-    tag: '',
-    custom: '',
-    amount: '',
-    unit: defaultUnit(catId, cat.subs[0].id),
-  };
+  const existing = editing ? editing.activity : null;
+  const draft = existing
+    ? {
+        cat: catId,
+        sub: existing.sub,
+        tag: existing.tag || '',
+        custom: existing.custom || '',
+        amount: existing.amount === undefined ? '' : String(existing.amount),
+        unit: existing.unit || defaultUnit(catId, existing.sub),
+      }
+    : {
+        cat: catId,
+        sub: cat.subs[0].id,
+        tag: '',
+        custom: '',
+        amount: '',
+        unit: defaultUnit(catId, cat.subs[0].id),
+      };
 
   const paint = () => {
     setTitle(cat.label);
@@ -297,7 +345,8 @@ function renderDetail(body, index, state, onChange, heading, catId) {
     const blocked = () => needsLabel({ ...draft, custom: draft.custom.trim() }) &&
       !draft.custom.trim();
 
-    const save = el('button', 'btn btn-primary sheet-save', 'Add');
+    const save = el('button', 'btn btn-primary sheet-save',
+      editing ? 'Save' : 'Add');
     save.type = 'button';
     save.disabled = blocked();
     save.addEventListener('click', () => {
@@ -311,7 +360,8 @@ function renderDetail(body, index, state, onChange, heading, catId) {
         activity.amount = value;
         activity.unit = draft.unit;
       }
-      state.days[index].push(activity);
+      if (editing) state.days[index][editing.position] = activity;
+      else state.days[index].push(activity);
       onChange();
       close();
     });

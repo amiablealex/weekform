@@ -515,11 +515,31 @@ body.sheet-open { overflow: hidden; }
 .entry {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 4px;
   padding: 7px 8px 7px 7px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
+
+/* The row itself is the edit control. */
+.entry-open {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 8px;
+}
+
+.entry-open:active { opacity: .6; }
 
 .entry .badge { width: 38px; flex: none; }
 
@@ -534,6 +554,7 @@ body.sheet-open { overflow: hidden; }
   letter-spacing: .8px;
 }
 
+.entry-promote,
 .entry-remove {
   width: var(--tap);
   height: var(--tap);
@@ -547,6 +568,7 @@ body.sheet-open { overflow: hidden; }
   cursor: pointer;
 }
 
+.entry-promote:active,
 .entry-remove:active { background: var(--bg); }
 
 /* --- week list ---------------------------------------------------------- */

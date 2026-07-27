@@ -284,6 +284,15 @@ export function iconBadgeSvg(id, glyph, badge, fill = 0.5, px = 100) {
     `</svg>`;
 }
 
+/**
+ * The glyph's markup alone, with no wrapping <svg>. For composing into a larger
+ * drawing — the calendar stacks two circles and needs to place the glyph itself.
+ */
+export function iconMarkup(id, glyph, badge) {
+  const ops = ICONS[id];
+  return ops ? opsToSvg(ops, glyph, badge) : '';
+}
+
 /** Just the glyph, no badge — for use on neutral UI surfaces. */
 export function iconGlyphSvg(id, glyph, badge, px = 24) {
   const ops = ICONS[id];
