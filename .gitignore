@@ -1,0 +1,20 @@
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# local data
+*.db
+*.sqlite3
+instance/
+.env
+
+# node — only present if you install a test runner
+node_modules/
+
+# editors and os
+.DS_Store
+.vscode/
+.idea/

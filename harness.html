@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>weekform — render harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: light dark; --line: #00000018; --dim: #6b7280; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 64px;
+    font: 400 15px/1.5 "Space Grotesk", system-ui, sans-serif;
+    background: #fafafa; color: #14161a;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #16181c; color: #e8eaed; }
+    :root { --line: #ffffff20; --dim: #9aa0a6; }
+  }
+  h1 { font: 700 20px/1.2 "Bricolage Grotesque", sans-serif; margin: 0 0 4px; }
+  h2 { font-size: 13px; font-weight: 500; text-transform: uppercase;
+       letter-spacing: 1.4px; color: var(--dim); margin: 32px 0 10px; }
+  .status { font-size: 13px; color: var(--dim); margin: 0 0 8px; }
+  .strip { width: 100%; max-width: 1080px; display: block;
+           border: 1px solid var(--line); border-radius: 4px; }
+  .case { margin-bottom: 22px; }
+  .case > figcaption { font-size: 12px; color: var(--dim); margin: 6px 0 0;
+                       display: flex; gap: 10px; align-items: center; }
+  button { font: 500 13px "Space Grotesk", sans-serif; padding: 5px 11px;
+           border: 1px solid var(--line); border-radius: 6px;
+           background: transparent; color: inherit; cursor: pointer; }
+  button:active { transform: scale(0.97); }
+  .phone { max-width: 390px; margin: 0 0 8px; }
+  .phone .strip { border-radius: 3px; }
+  .note { font-size: 13px; color: var(--dim); max-width: 46em; }
+  .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+           gap: 14px 6px; margin-top: 8px; }
+  .icons figure { margin: 0; text-align: center; }
+  .icons svg { width: 100%; height: auto; max-width: 84px; }
+  .icons figcaption { font-size: 11px; color: var(--dim); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<h1>weekform render harness</h1>
+<p class="status" id="status">Loading fonts…</p>
+<p class="note">
+  Judge the strips at phone width first — that is roughly how they arrive in a
+  chat. Tap Download on any strip to get the real 2160&times;840 PNG and post it
+  into the actual channel to see what compression does to it.
+</p>
+
+<h2>At phone width (390px)</h2>
+<div id="phone-cases"></div>
+
+<h2>Full width</h2>
+<div id="cases"></div>
+
+<h2>Icon suite — solo scale</h2>
+<div class="icons" id="icons-solo"></div>
+
+<h2>Icon suite — reduced scale, as drawn alongside a duration</h2>
+<div class="icons" id="icons-meta"></div>
+
+<script type="module">
+import { renderStrip, renderToCanvas, toBlob, loadFonts } from './static/js/render.js';
+import { CATEGORIES, PALETTE, resolve } from './static/js/tokens.js';
+import { ICONS, iconBadgeSvg } from './static/js/icons.js';
+import { defaultWeekStart, formatRange } from './static/js/week.js';
+
+const week = defaultWeekStart();
+
+// Deliberately awkward cases, not a happy path. Long custom labels, a stacked
+// day where both colours are close, a full week of one colour, an empty week.
+const CASES = [
+  {
+    name: 'Mixed week, one stacked day',
+    state: {
+      title: 'My Week', weekStart: week,
+      days: [
+        [{ cat: 'cardio', sub: 'run', tag: 'easy', amount: 5, unit: 'km' }],
+        [{ cat: 'rest', sub: 'rest' }],
+        [{ cat: 'workout', sub: 'upper' }],
+        [{ cat: 'cardio', sub: 'bike', amount: 45, unit: 'min' },
+         { cat: 'mobility', sub: 'yoga' }],
+        [{ cat: 'rest', sub: 'rest' }],
+        [{ cat: 'sport', sub: 'sport', custom: 'dodgeball', amount: 90, unit: 'min' }],
+        [{ cat: 'cheat', sub: 'doughnut' }],
+      ],
+    },
+  },
+  {
+    name: 'Empty week — every day falls back to rest',
+    state: { title: 'My Week', weekStart: week, days: [[], [], [], [], [], [], []] },
+  },
+  {
+    name: 'Stacked cardio behind cardio — tests the separation ring',
+    state: {
+      title: 'Big Block', weekStart: week,
+      days: [
+        [{ cat: 'cardio', sub: 'run', tag: 'interval', amount: 8, unit: 'km' },
+         { cat: 'cardio', sub: 'swim' }],
+        [{ cat: 'cardio', sub: 'run', tag: 'tempo', amount: 1.5, unit: 'h' },
+         { cat: 'cardio', sub: 'bike' }],
+        [{ cat: 'workout', sub: 'core' }, { cat: 'workout', sub: 'lower' }],
+        [{ cat: 'cardio', sub: 'run', tag: 'long', amount: 21.1, unit: 'km' }],
+        [{ cat: 'illness', sub: 'illness' }],
+        [{ cat: 'illness', sub: 'illness' }],
+        [{ cat: 'cardio', sub: 'run', tag: 'race', amount: 42.2, unit: 'km' },
+         { cat: 'cheat', sub: 'beer' }],
+      ],
+    },
+  },
+  {
+    name: 'Overlong inputs — custom labels and a long title',
+    state: {
+      title: 'Marathon Block Week Fourteen', weekStart: week,
+      days: [
+        [{ cat: 'workout', sub: 'custom', custom: 'kettlebell complex' }],
+        [{ cat: 'mobility', sub: 'custom', custom: 'physio' }],
+        [{ cat: 'cardio', sub: 'run', custom: 'hill repeats', amount: 12.75, unit: 'km' }],
+        [{ cat: 'vacation', sub: 'vacation' }],
+        [{ cat: 'vacation', sub: 'vacation' }],
+        [{ cat: 'vacation', sub: 'vacation' }],
+        [{ cat: 'cardio', sub: 'swim', amount: 2.25, unit: 'h' }],
+      ],
+    },
+  },
+];
+
+function caseNode(c, klass) {
+  const fig = document.createElement('figure');
+  fig.className = 'case ' + (klass || '');
+  const canvas = document.createElement('canvas');
+  canvas.className = 'strip';
+  fig.appendChild(canvas);
+
+  const cap = document.createElement('figcaption');
+  const label = document.createElement('span');
+  label.textContent = c.name;
+  const btn = document.createElement('button');
+  btn.textContent = 'Download';
+  btn.onclick = async () => {
+    const blob = await toBlob(renderToCanvas(c.state));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+  cap.append(label, btn);
+  fig.appendChild(cap);
+
+  renderStrip(canvas, c.state);
+  return fig;
+}
+
+function drawAll() {
+  const wide = document.getElementById('cases');
+  const phone = document.getElementById('phone-cases');
+  wide.innerHTML = '';
+  phone.innerHTML = '';
+  for (const c of CASES) {
+    phone.appendChild(caseNode(c, 'phone'));
+    wide.appendChild(caseNode(c));
+  }
+}
+
+function paletteForIcon(iconId) {
+  for (const cat of CATEGORIES) {
+    for (const sub of cat.subs) {
+      if (sub.icon === iconId) return PALETTE[cat.palette];
+    }
+  }
+  return PALETTE.workout;
+}
+
+function drawIconSheets() {
+  for (const [target, fill] of [['icons-solo', 0.50], ['icons-meta', 0.36]]) {
+    const host = document.getElementById(target);
+    host.innerHTML = '';
+    for (const id of Object.keys(ICONS)) {
+      const p = paletteForIcon(id);
+      const fig = document.createElement('figure');
+      fig.innerHTML = iconBadgeSvg(id, p.glyph, p.fill, fill, 84) +
+        `<figcaption>${id}</figcaption>`;
+      host.appendChild(fig);
+    }
+  }
+}
+
+const status = document.getElementById('status');
+drawIconSheets();
+
+try {
+  await loadFonts();
+  const ok = document.fonts.check('700 46px "Bricolage Grotesque"') &&
+             document.fonts.check('400 25px "Space Grotesk"');
+  status.textContent = ok
+    ? `Fonts loaded. Default week: ${formatRange(week)}`
+    : 'Fonts did NOT load — strips below are using a fallback face. Check the network.';
+} catch (e) {
+  status.textContent = 'Font loading failed: ' + e.message;
+}
+drawAll();
+</script>
+</body>
+</html>
