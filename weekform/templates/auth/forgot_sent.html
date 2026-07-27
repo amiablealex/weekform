@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Check your email — weekform{% endblock %}
+{% block content %}
+<h1>Check your email</h1>
+<p class="lede">If that address has an account, a link is on its way. It works
+  once and expires in two hours.</p>
+<p class="alt"><a href="{{ url_for('auth.login') }}">Back to sign in</a></p>
+{% endblock %}

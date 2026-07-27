@@ -50,14 +50,18 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = _engine_options()
 
-    # Only used for flash messaging and the like; there are no sessions and no
-    # cookies, so this is future-proofing rather than a live secret.
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-not-a-secret")
+    # Signs the session cookie. Anyone who knows it can forge a login, so a
+    # deployment without one refuses to start rather than accepting a default.
+    SECRET_KEY = os.environ.get("SECRET_KEY", "")
 
     ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
     SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "weekform.app")
+
+    # Password reset is the only message this app ever sends.
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+    MAIL_FROM = os.environ.get("MAIL_FROM", "weekform <noreply@weekform.app>")
 
     # Requests per minute per address to the counter endpoint.
     SHARE_RATE_LIMIT = int(os.environ.get("SHARE_RATE_LIMIT", "30"))

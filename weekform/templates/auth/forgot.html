@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Reset password — weekform{% endblock %}
+{% block content %}
+
+<h1>Reset password</h1>
+
+{% if available %}
+  <p class="lede">We will send a link that works once.</p>
+  <form method="post" action="{{ url_for('auth.forgot') }}" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label class="field">
+      <span>Email</span>
+      <input type="email" name="email" autocomplete="email" required
+             autocapitalize="off" spellcheck="false">
+    </label>
+    <button type="submit" class="btn btn-primary">Send link</button>
+  </form>
+{% else %}
+  <p class="lede">Password reset is not available on this deployment.</p>
+{% endif %}
+
+<p class="alt"><a href="{{ url_for('auth.login') }}">Back to sign in</a></p>
+
+{% endblock %}

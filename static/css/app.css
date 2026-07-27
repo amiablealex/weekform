@@ -53,6 +53,29 @@ body.sheet-open { overflow: hidden; }
   padding: 14px 14px 132px;
 }
 
+/* --- top bar ------------------------------------------------------------ */
+
+.topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+.account-btn {
+  width: var(--tap);
+  height: var(--tap);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  color: var(--ink-faint);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.account-btn:active { background: var(--surface); }
+
+.account-btn.is-in { color: var(--accent); }
+
 /* --- week bar ----------------------------------------------------------- */
 
 .weekbar {
@@ -168,6 +191,8 @@ body.sheet-open { overflow: hidden; }
   font-size: 12.5px;
   color: var(--ink-faint);
 }
+
+.guide a { color: var(--ink-soft); text-underline-offset: 2px; }
 
 /* --- actions ------------------------------------------------------------ */
 

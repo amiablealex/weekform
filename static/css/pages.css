@@ -1,0 +1,251 @@
+/* --------------------------------------------------------------------------
+   weekform — pages
+
+   Everything behind the account icon. Same tokens as app.css, same rule about
+   circles: they belong to activities. The calendar is the one place that rule
+   pays off, because every circle in the month grid means something.
+   -------------------------------------------------------------------------- */
+
+.page {
+  padding: 0 0 60px;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 10px 14px;
+}
+
+.page-back,
+.page-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: var(--tap);
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 15px;
+}
+
+.page-link { color: var(--accent); }
+
+.page-body {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 4px 14px 0;
+}
+
+.page-foot {
+  max-width: 560px;
+  margin: 40px auto 0;
+  padding: 0 14px;
+  font-size: 12.5px;
+}
+
+.page-foot a { color: var(--ink-faint); text-decoration: none; }
+
+.page h1 {
+  font-family: "Bricolage Grotesque", "Space Grotesk", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.5px;
+  margin: 8px 0 6px;
+}
+
+.page h2 {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.3px;
+  color: var(--ink-faint);
+  margin: 34px 0 8px;
+}
+
+.page p { margin: 0 0 10px; font-size: 15px; }
+
+.lede { color: var(--ink-soft); }
+
+.alt { margin-top: 22px; font-size: 14px; color: var(--ink-soft); }
+.alt a { color: var(--accent); }
+
+.flash {
+  padding: 10px 13px;
+  margin: 0 0 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 14.5px;
+}
+
+/* --- forms -------------------------------------------------------------- */
+
+.stack { display: grid; gap: 14px; margin-top: 18px; }
+
+.field { display: grid; gap: 5px; }
+
+.field > span {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--ink-faint);
+}
+
+.field input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 16px "Space Grotesk", system-ui, sans-serif;
+}
+
+.field input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.field small { font-size: 12.5px; color: var(--ink-faint); }
+
+.check {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.check input {
+  width: 21px;
+  height: 21px;
+  margin: 1px 0 0;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.page .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  padding: 0 20px;
+  text-decoration: none;
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: #c0554b;
+  color: #b0473d;
+  font-weight: 500;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-danger { border-color: #7a3830; color: #f0afa8; }
+}
+
+.danger-head { color: #b0473d; }
+
+@media (prefers-color-scheme: dark) {
+  .danger-head { color: #f0afa8; }
+}
+
+/* --- facts list --------------------------------------------------------- */
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 16px 0 0;
+  font-size: 15px;
+}
+
+.facts dt {
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  align-self: center;
+}
+
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* --- calendar ----------------------------------------------------------- */
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0 14px;
+}
+
+.cal-head h1 { margin: 0; font-size: 20px; }
+
+.cal { display: grid; gap: 4px; }
+
+.cal-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+.cal-dow span {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--ink-faint);
+}
+
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cal-week:hover,
+.cal-week:focus-visible { border-color: var(--line); outline: none; }
+
+.cal-week.has-data { background: var(--surface); border-color: var(--line); }
+
+.cal-day {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 5px 0 6px;
+  min-width: 0;
+}
+
+.cal-day.is-outside { opacity: .35; }
+
+.cal-num {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-day.is-today .cal-num { color: var(--accent); font-weight: 700; }
+
+.cal-mark { width: 100%; max-width: 34px; line-height: 0; }
+
+.cal-mark svg { display: block; width: 100%; height: auto; }
+
+.cal-empty {
+  width: 12px;
+  height: 12px;
+  margin: 5px 0;
+  border-radius: 50%;
+  border: 1.5px dashed var(--line);
+}
+
+.cal-note { margin-top: 16px; font-size: 13px; color: var(--ink-faint); }

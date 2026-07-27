@@ -25,6 +25,18 @@
 <body>
 
 <main class="app">
+  <div class="topbar">
+    <a class="account-btn {{ 'is-in' if current_user() }}"
+       href="{{ url_for('account.history') if current_user() else url_for('auth.login') }}"
+       aria-label="{{ 'Your history' if current_user() else 'Sign in' }}">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <circle cx="12" cy="8.5" r="3.6" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M5.2 19.5 C5.2 15.6 8.2 13.8 12 13.8 C15.8 13.8 18.8 15.6 18.8 19.5"
+              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </a>
+  </div>
+
   <div class="weekbar">
     <button type="button" class="weekbar-step" id="week-prev" aria-label="Previous week">
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -52,10 +64,17 @@
   </div>
 
   <p class="guide">Tap a day to add what you did, then share the image.</p>
-  <p class="guide guide-quiet">
-    Weeks are saved on this device and in the link. Nothing is uploaded, so
-    clearing your browser data clears them.
-  </p>
+  {% if current_user() %}
+    <p class="guide guide-quiet">
+      Weeks are saved to your account. <a href="{{ url_for('account.history') }}">See your history</a>.
+    </p>
+  {% else %}
+    <p class="guide guide-quiet">
+      Weeks are saved on this device and in the link. Nothing is uploaded, so
+      clearing your browser data clears them —
+      <a href="{{ url_for('auth.signup_form') }}">sign up to keep them</a>.
+    </p>
+  {% endif %}
 </main>
 
 <div class="actions">
@@ -70,6 +89,12 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script>
+  window.WEEKFORM = {
+    signedIn: {{ 'true' if current_user() else 'false' }},
+    csrf: "{{ csrf_token() }}"
+  };
+</script>
 <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

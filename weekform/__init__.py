@@ -14,6 +14,7 @@ from flask import Flask
 
 from .config import Config
 from .models import db
+from .security import configure_session, csrf_token, current_user
 
 
 def create_app(config_object: type[Config] | None = None) -> Flask:
@@ -25,6 +26,19 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     )
     app.config.from_object(config_object or Config)
 
+    if not app.config.get("SECRET_KEY"):
+        if app.config.get("DEBUG"):
+            # Local development should not need ceremony. Sessions will not
+            # survive a restart, which is fine and obvious.
+            app.config["SECRET_KEY"] = "development-only"
+            app.logger.warning("SECRET_KEY unset; using a throwaway development key")
+        else:
+            raise RuntimeError(
+                "SECRET_KEY is not set. It signs the session cookie, so without "
+                "it anyone could forge a login. Set it and redeploy."
+            )
+
+    configure_session(app)
     db.init_app(app)
     with app.app_context():
         try:
@@ -39,10 +53,20 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     from .blueprints.main import bp as main_bp
     from .blueprints.api import bp as api_bp
     from .blueprints.admin import bp as admin_bp
+    from .blueprints.auth import bp as auth_bp
+    from .blueprints.account import bp as account_bp
+    from .blueprints.sync import bp as sync_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(account_bp)
+    app.register_blueprint(sync_bp)
+
+    # Templates need both of these on nearly every page.
+    app.jinja_env.globals["csrf_token"] = csrf_token
+    app.jinja_env.globals["current_user"] = current_user
 
     @app.after_request
     def security_headers(response):

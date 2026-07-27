@@ -8,6 +8,25 @@ feed, no streaks.
 
 ---
 
+## Accounts
+
+Optional, and the tool is complete without one. Signed out, nothing is uploaded
+and nothing is stored about anybody. Signing in adds one thing: your weeks are
+kept server-side too, so they survive a new phone, and a month calendar becomes
+available at `/account`.
+
+localStorage stays the working copy either way. The server is a second home for
+it, not the source of truth, so the app behaves identically offline. Weeks built
+before signing in are uploaded on first sign-in rather than lost. Where both
+sides hold the same week, the server wins — it is the copy that followed you
+from your last device, and choosing a side beats inventing a merge nobody asked
+for.
+
+A week is stored as the same opaque blob the URL fragment carries. The server
+checks it is small and well-formed and then stores it without looking inside,
+which is why adding an activity type is still a one-file change in `tokens.js`
+with no deploy on the server side.
+
 ## How it works
 
 The strip is built, drawn and exported entirely in the browser. The canvas on
@@ -55,6 +74,31 @@ directory rather than at the repo root on purpose: a root `package.json` makes
 build systems conclude this is a Node project. That is exactly how the first
 Railway deploy failed.
 
+## Email
+
+Password reset is the only message this app ever sends. No welcome mail, no
+digests, nothing to unsubscribe from.
+
+Set up at Resend: add `weekform.app` as a domain, copy the DKIM and SPF records
+it gives you into Cloudflare exactly as shown, leave them as DNS-only, and wait
+for the domain to verify. Then set `RESEND_API_KEY` and `MAIL_FROM`.
+
+Without a key the app still runs and the reset page says so plainly, rather than
+pretending to send something.
+
+## Schema changes
+
+There are no migrations. `create_all` creates missing tables and leaves existing
+ones alone, which covers every change so far — including adding accounts to a
+live database.
+
+It does not cover altering an existing column, and the first time that is
+needed, adopt Alembic then: `pip install Flask-Migrate`, initialise it, generate
+one revision, and `flask db stamp head` on the production database so it knows
+the current schema is already applied. Deferred deliberately rather than
+overlooked — running migrations at container start-up is a failure mode, and it
+was not worth adding before it earned its place.
+
 ## Deploying to Railway
 
 The repo ships a `Dockerfile`, and Railway uses it in preference to guessing.
@@ -68,10 +112,15 @@ least convenient moment.
    automatically; the app rewrites the legacy `postgres://` scheme it hands out.
    Without one it falls back to SQLite, which works but is wiped on every
    deploy — fine for a first look, not for keeping a count.
-4. Set `ADMIN_USER` and `ADMIN_PASSWORD`. Until `ADMIN_PASSWORD` exists, `/admin`
+4. Set `SECRET_KEY`. It signs the session cookie, so without it anybody could
+   forge a login — the container refuses to start rather than accept a default,
+   and says so in the first line of the deploy log. Generate one with
+   `python3 -c 'import secrets; print(secrets.token_urlsafe(48))'`.
+5. Set `ADMIN_USER` and `ADMIN_PASSWORD`. Until `ADMIN_PASSWORD` exists, `/admin`
    returns 503 rather than opening — a deploy that forgets it should not quietly
    publish its own stats.
-5. Point the custom domain at the service and add the CNAME Railway gives you.
+6. Set `RESEND_API_KEY` and `MAIL_FROM` if you want password reset to work.
+7. Point the custom domain at the service and add the CNAME Railway gives you.
 
 To run the image the same way locally:
 
@@ -115,8 +164,11 @@ static/js/render.js    the canvas renderer and PNG export
 static/js/state.js     validation, URL fragment encoding, local persistence
 static/js/sheet.js     the bottom sheet, generated from the taxonomy
 static/js/app.js       preview, tap zones, week navigation, share
+static/js/sync.js      device-to-account reconciliation
+static/js/calendar.js  the month view
 static/css/app.css     app chrome
-weekform/              Flask app: factory, config, model, three blueprints
+weekform/              Flask app: factory, config, models, security, mail
+weekform/blueprints/   main, api, admin, auth, account, sync
 harness.html           render harness, no server required
 tests/logic.test.mjs   assertions for the pure logic
 ```
@@ -182,17 +234,24 @@ which serves the app over HTTPS on your tailnet.
 
 ## Privacy
 
-One table, three columns: when a strip was shared, on which day, and whether it
+Signed out, one table and three columns: when a strip was shared, on which day, and whether it
 went through the native share sheet or a download. No addresses, no user agents,
 nothing about the strip's contents. The week never leaves the browser, so it
 could not be recorded even if somebody wanted it to be.
 
-Which also sets the limit of what the app can currently promise: weeks live in
-`localStorage` and in the link, and nothing else. Clearing site data clears
-them, and a week entered on a phone is not on a laptop. The page says as much
-under the strip rather than leaving people to find out. Real history across
-devices needs accounts, and that is a decision to take deliberately rather than
-by drifting into it.
+Signed in, that grows by exactly what it has to: an email address, a password
+hash, and the weeks that person chose to save. Weeks are stored as they arrive
+and are never read, analysed or profiled — the server does not know what a
+doughnut is. Deleting an account removes the account, every saved week and every
+outstanding reset token in one transaction, leaving only a bare timestamp so
+churn is visible. Everything held can be downloaded from Settings at any time.
+
+Deletion is done twice over — SQLAlchemy removes the child rows itself, and the
+foreign keys carry `ON DELETE CASCADE` as a backstop. That is not belt and
+braces for its own sake: the first implementation deferred cascading to the
+database, and SQLite ignores foreign keys unless explicitly told not to, so
+"delete everything" silently left every saved week behind. For a promise that
+consequential, one mechanism was not enough.
 
 Fonts currently load from Google's CDN, which does mean visitors' addresses
 reach Google. Self-hosting is one script and one line of CSS away if that

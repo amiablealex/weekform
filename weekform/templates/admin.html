@@ -69,7 +69,7 @@
     <div class="card"><dt>Last 30 days</dt><dd>{{ last_30 }}</dd></div>
   </dl>
 
-  <h2>Last 30 days</h2>
+  <h2>Strips shared, last 30 days</h2>
   <div class="chart">
     {% for day, count in days %}
       <div class="bar {{ 'is-zero' if count == 0 }}"
@@ -85,6 +85,20 @@
   <p class="split">
     Native share sheet <span>{{ by_kind.get('share', 0) }}</span> ·
     Downloaded instead <span>{{ by_kind.get('download', 0) }}</span>
+  </p>
+
+  <h2>Accounts</h2>
+  <dl class="cards">
+    <div class="card"><dt>Signed up</dt><dd>{{ accounts.total }}</dd></div>
+    <div class="card"><dt>New this week</dt><dd>{{ accounts.new_7 }}</dd></div>
+    <div class="card"><dt>Active 30 days</dt><dd>{{ accounts.active_30 }}</dd></div>
+    <div class="card"><dt>Deleted</dt><dd>{{ accounts.deleted }}</dd></div>
+  </dl>
+
+  <p class="split">
+    With at least one saved week <span>{{ accounts.with_weeks }}</span> ·
+    Weeks stored <span>{{ accounts.weeks }}</span> ·
+    New in 30 days <span>{{ accounts.new_30 }}</span>
   </p>
 
   {% endif %}

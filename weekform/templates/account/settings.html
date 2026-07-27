@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Settings — weekform{% endblock %}
+{% set back_href = url_for('account.history') %}
+{% set back_label = 'History' %}
+
+{% block content %}
+
+<h1>Settings</h1>
+
+<dl class="facts">
+  <dt>Signed in as</dt><dd>{{ user.email }}</dd>
+  <dt>Weeks saved</dt><dd>{{ saved }}</dd>
+  <dt>Account created</dt><dd>{{ user.created_at.strftime('%d %B %Y') }}</dd>
+</dl>
+
+<h2>Your data</h2>
+<p class="lede">Everything held about this account, in one file.</p>
+<p><a class="btn" href="{{ url_for('account.export') }}">Download</a></p>
+
+<form method="post" action="{{ url_for('auth.logout') }}" class="stack">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <button type="submit" class="btn">Sign out</button>
+</form>
+
+<h2 class="danger-head">Delete account</h2>
+<p class="lede">Removes the account and every saved week immediately. It cannot
+  be undone, and nothing is kept in a backup for later.</p>
+
+<form method="post" action="{{ url_for('account.delete') }}" class="stack"
+      id="delete-form">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <label class="field">
+    <span>Confirm your password</span>
+    <input type="password" name="password" autocomplete="current-password" required>
+  </label>
+  <button type="submit" class="btn btn-danger" id="delete-btn">Delete everything</button>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+  // Two taps, not a modal. The first arms it, the second means it.
+  const button = document.getElementById('delete-btn');
+  const form = document.getElementById('delete-form');
+  let armed = false;
+  let timer = null;
+  form.addEventListener('submit', (event) => {
+    if (armed) return;
+    event.preventDefault();
+    armed = true;
+    button.textContent = 'Tap again to confirm';
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      armed = false;
+      button.textContent = 'Delete everything';
+    }, 4000);
+  });
+</script>
+{% endblock %}

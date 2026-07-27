@@ -7,7 +7,9 @@ from functools import wraps
 
 from flask import Blueprint, Response, current_app, render_template
 
-from ..models import counts_by_kind, daily_counts, db, shares_since, total_shares
+from ..models import (active_users, counts_by_kind, daily_counts, db,
+                      shares_since, total_deletions, total_shares, total_users,
+                      total_weeks, users_since, users_with_weeks)
 
 bp = Blueprint("admin", __name__)
 
@@ -62,7 +64,8 @@ def _database_ok() -> bool:
 def dashboard() -> str:
     if not _database_ok():
         return render_template("admin.html", database_ok=False, total=0, today=0,
-                               last_7=0, last_30=0, by_kind={}, days=[], peak=0)
+                               last_7=0, last_30=0, by_kind={}, days=[], peak=0,
+                               accounts={})
     days = daily_counts(30)
     peak = max((count for _, count in days), default=0)
     return render_template(
@@ -75,4 +78,13 @@ def dashboard() -> str:
         by_kind=counts_by_kind(),
         days=days,
         peak=peak,
+        accounts={
+            "total": total_users(),
+            "new_7": users_since(7),
+            "new_30": users_since(30),
+            "active_30": active_users(30),
+            "with_weeks": users_with_weeks(),
+            "weeks": total_weeks(),
+            "deleted": total_deletions(),
+        },
     )

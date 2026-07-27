@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}History — weekform{% endblock %}
+{% set back_label = 'This week' %}
+
+{% block headright %}
+  <a class="page-link" href="{{ url_for('account.settings') }}">Settings</a>
+{% endblock %}
+
+{% block content %}
+
+{% if welcome %}
+  <p class="flash">Signed in. Anything already on this device has been kept.</p>
+{% endif %}
+
+<div class="cal-head">
+  <button type="button" class="weekbar-step" id="cal-prev" aria-label="Previous month">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M14.5 5 L8 12 L14.5 19" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  <h1 id="cal-title">—</h1>
+  <button type="button" class="weekbar-step" id="cal-next" aria-label="Next month">
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M9.5 5 L16 12 L9.5 19" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+</div>
+
+<div id="calendar" class="cal"></div>
+<p class="cal-note" id="cal-note">Tap any week to open it.</p>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/calendar.js') }}"></script>
+{% endblock %}

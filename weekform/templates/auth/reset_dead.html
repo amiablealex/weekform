@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Link expired — weekform{% endblock %}
+{% block content %}
+<h1>Link expired</h1>
+<p class="lede">Reset links work once and last two hours.</p>
+<p class="alt"><a href="{{ url_for('auth.forgot_form') }}">Send another</a></p>
+{% endblock %}

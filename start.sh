@@ -19,6 +19,21 @@ if [ -n "${ADMIN_PASSWORD}" ]; then
 else
   echo "weekform: ADMIN_PASSWORD unset — /admin will stay closed"
 fi
+if [ -n "${RESEND_API_KEY}" ]; then
+  echo "weekform: email configured"
+else
+  echo "weekform: RESEND_API_KEY unset — password reset will be unavailable"
+fi
+
+# Fail here, loudly, rather than inside a worker. SECRET_KEY signs the session
+# cookie: without it anybody could forge a login, so there is no safe default.
+if [ -z "${SECRET_KEY}" ]; then
+  echo "weekform: FATAL — SECRET_KEY is not set."
+  echo "weekform: it signs the session cookie. Generate one with:"
+  echo "weekform:   python3 -c 'import secrets; print(secrets.token_urlsafe(48))'"
+  echo "weekform: then add it as a service variable and redeploy."
+  exit 1
+fi
 
 # exec so gunicorn becomes PID 1 and receives stop signals directly.
 exec gunicorn "weekform:create_app()" \

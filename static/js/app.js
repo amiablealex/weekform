@@ -12,6 +12,7 @@ import { formatRangeShort, relativeName, addWeeks, formatRange } from './week.js
 import { emptyState, emptyDays, sanitise, saveWeek, loadWeek, lastVisitedWeek,
          hasStoredWeek, readHash, writeHash, shareUrl, isEmpty } from './state.js';
 import { openDay, openWeek, openTitle, close as closeSheet } from './sheet.js';
+import { push as pushWeek, reconcile, isSignedIn } from './sync.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -162,6 +163,7 @@ function paint() {
 function applyChange() {
   state = sanitise(state);
   saveWeek(state);
+  pushWeek(state);        // no-op when signed out
   writeHash(state);
   paint();
 }
@@ -307,6 +309,23 @@ async function boot() {
   paint();
 
   if (!canShareFiles()) shareBtn.textContent = 'Save image';
+
+  // Signed in, the device and the account are reconciled once at start-up.
+  // Weeks built before signing in are uploaded rather than lost, and weeks from
+  // another device arrive. The week on screen is then reloaded in case the
+  // server had a newer copy of it.
+  if (isSignedIn()) {
+    const viewing = state.weekStart;
+    reconcile().then(({ pulled, pushed }) => {
+      const stored = loadWeek(viewing);
+      if (stored) {
+        state = stored;
+        paint();
+      }
+      if (pushed) toast(`${pushed} week${pushed === 1 ? '' : 's'} saved to your account`);
+      else if (pulled) toast('History loaded');
+    });
+  }
 
   $('week-prev').addEventListener('click', () => step(-1));
   $('week-next').addEventListener('click', () => step(1));

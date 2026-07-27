@@ -12,8 +12,17 @@ def index() -> str:
     return render_template("index.html")
 
 
+@bp.get("/privacy")
+def privacy() -> str:
+    return render_template("privacy.html")
+
+
 @bp.get("/robots.txt")
 def robots() -> Response:
     # The admin page holds no personal data, but there is no reason to index it.
-    body = "User-agent: *\nDisallow: /admin\nAllow: /\n"
+    body = ("User-agent: *\n"
+            "Disallow: /admin\n"
+            "Disallow: /account\n"
+            "Disallow: /reset\n"
+            "Allow: /\n")
     return Response(body, mimetype="text/plain")
