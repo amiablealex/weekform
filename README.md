@@ -98,6 +98,13 @@ Without it, `PORT` is the single answer. `start.sh` logs the port and the
 configuration it found before handing over to gunicorn, so the deploy log says
 what happened.
 
+Every entry point runs `start.sh`: the Dockerfile's `CMD`, the `Procfile`, and
+`startCommand` in `railway.json`. That is not belt and braces for its own sake.
+Railway prefers a Procfile over the image's `CMD`, and it runs start commands
+without a shell — so a bare `$PORT` in a start command reaches gunicorn as five
+literal characters rather than a number. Funnelling every path through one
+script means whichever one wins, `PORT` is expanded by the same code.
+
 ## Files
 
 ```
