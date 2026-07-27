@@ -48,11 +48,28 @@
   @media (prefers-color-scheme: dark) {
     .warn { background: #2a1a17; border-color: #5a2f28; color: #f0afa8; }
   }
+  .note-flash { background: var(--surface); border-color: var(--line);
+                color: var(--ink); overflow-wrap: anywhere; }
+  .testmail { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .testmail input { flex: 1; min-width: 200px; min-height: 42px; padding: 0 12px;
+                    border: 1px solid var(--line); border-radius: 8px;
+                    background: var(--surface); color: var(--ink);
+                    font: 400 15px "Space Grotesk", system-ui, sans-serif; }
+  .testmail button { min-height: 42px; padding: 0 16px; border: 1px solid var(--line);
+                     border-radius: 8px; background: var(--surface); color: var(--ink);
+                     font: 500 14px "Space Grotesk", system-ui, sans-serif;
+                     cursor: pointer; }
   .note { margin-top: 30px; font-size: 12.5px; color: var(--faint); max-width: 46em; }
 </style>
 </head>
 <body>
 <div class="wrap">
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for message in messages %}<p class="warn note-flash">{{ message }}</p>{% endfor %}
+    {% endif %}
+  {% endwith %}
 
   <h1>Usage</h1>
   <p class="sub">Strips shared. Nothing else is recorded.</p>
@@ -102,6 +119,21 @@
   </p>
 
   {% endif %}
+
+  <h2>Email</h2>
+  <p class="split">
+    API key <span>{{ 'set' if email.configured else 'MISSING' }}</span> ·
+    Sending as <span>{{ email.sender }}</span>
+  </p>
+  <p class="note" style="margin-top:8px">
+    The sending address must be on a domain verified in Resend, or every send is
+    rejected. Send yourself a test to find out.
+  </p>
+  <form method="post" action="{{ url_for('admin.test_email') }}" class="testmail">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="email" name="to" placeholder="you@example.com" required>
+    <button type="submit">Send test</button>
+  </form>
 
   <p class="note">
     A high download share means the native sheet is unavailable — usually

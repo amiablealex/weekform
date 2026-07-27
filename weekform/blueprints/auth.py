@@ -128,7 +128,16 @@ def forgot():
                                          expires_at=reset_expiry()))
             db.session.commit()
             link = url_for("auth.reset_form", token=token, _external=True)
-            send_reset_link(user.email, link)
+            sent, detail = send_reset_link(user.email, link)
+            if not sent:
+                current_app.logger.error("reset email not sent: %s", detail)
+        else:
+            # Logged without the address: knowing a request landed on an
+            # unknown account is the useful part, and keeping the address is
+            # not.
+            current_app.logger.info("reset requested for an address with no account")
+    else:
+        current_app.logger.info("reset request rate limited")
 
     # The same answer whether or not that address exists, so this page cannot be
     # used to discover who has an account.
