@@ -107,7 +107,10 @@ function render() {
     const weekStart = toISO(rowStart);
     const row = el('button', 'cal-week');
     row.type = 'button';
-    if (weeks[weekStart]) {
+    // Presence of a record is not the same as holding anything. A week that
+    // was cleared should look cleared.
+    const week = weeks[weekStart];
+    if (week && (week.days || []).some((day) => (day || []).length > 0)) {
       row.classList.add('has-data');
       filled += 1;
     }

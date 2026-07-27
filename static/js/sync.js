@@ -9,7 +9,7 @@
 // Signed out, none of this runs and nothing leaves the browser.
 // ---------------------------------------------------------------------------
 
-import { sanitise, storedWeekStarts, loadWeek, saveWeek } from './state.js';
+import { sanitise, storedWeekStarts, loadWeek, saveWeek, isEmpty } from './state.js';
 
 const isSignedIn = () => Boolean(window.WEEKFORM && window.WEEKFORM.signedIn);
 const csrf = () => (window.WEEKFORM && window.WEEKFORM.csrf) || '';
@@ -27,16 +27,26 @@ async function request(url, options = {}) {
   return response.json();
 }
 
-/** Push one week. Debounced, because a push per keystroke helps nobody. */
+/**
+ * Push one week. Debounced, because a push per keystroke helps nobody.
+ *
+ * A week that has been emptied is removed rather than stored as an empty one.
+ * The device already drops empty weeks, and without this the two disagreed: a
+ * cleared week left a row behind on the server, which the calendar then drew as
+ * a week still holding something.
+ */
 export function push(state) {
   if (!isSignedIn()) return;
   const key = state.weekStart;
   clearTimeout(pending.get(key));
+  const emptied = isEmpty(state);
   const body = JSON.stringify({ title: state.title, days: state.days });
+
   pending.set(key, setTimeout(async () => {
     pending.delete(key);
     try {
-      await request(`/api/weeks/${key}`, { method: 'PUT', body });
+      if (emptied) await request(`/api/weeks/${key}`, { method: 'DELETE' });
+      else await request(`/api/weeks/${key}`, { method: 'PUT', body });
     } catch (err) {
       // The local copy is already saved, so a failure here costs nothing but a
       // delay — the next edit to this week will carry it up.
