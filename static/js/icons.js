@@ -52,7 +52,7 @@ export const ICONS = {
 
   // A workout is a workout. Which body part it was is now a label beneath the
   // circle, the same way a run's character is. One glyph, four sub-types.
-  dumbbell: [
+  strength: [
     ['fr', -18, -11, 7.5, 22, 3],
     ['fr', 10.5, -11, 7.5, 22, 3],
     ['fr', -10.5, -4, 21, 8, 2],

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>weekform</title>
+<meta name="description" content="Turn a week of training into one image for a group chat.">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101215" media="(prefers-color-scheme: dark)">
+
+<meta property="og:title" content="weekform">
+<meta property="og:description" content="Turn a week of training into one image for a group chat.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
+
+<link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+
+<main class="app">
+  <div class="weekbar">
+    <button type="button" class="weekbar-step" id="week-prev" aria-label="Previous week">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M14.5 5 L8 12 L14.5 19" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <button type="button" class="weekbar-label" id="week-label-btn">
+      <span id="week-label">—</span>
+      <span id="week-rel"></span>
+    </button>
+
+    <button type="button" class="weekbar-step" id="week-next" aria-label="Next week">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M9.5 5 L16 12 L9.5 19" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="strip" width="2160" height="840"
+            aria-label="Your week, as an image"></canvas>
+  </div>
+</main>
+
+<div class="actions">
+  <div class="actions-inner">
+    <button type="button" class="btn btn-primary" id="share">Share</button>
+    <div class="actions-minor">
+      <button type="button" class="btn-quiet" id="copy">Copy link</button>
+      <button type="button" class="btn-quiet" id="clear">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

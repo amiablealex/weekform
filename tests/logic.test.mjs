@@ -9,6 +9,8 @@ import { defaultWeekStart, formatRange, formatRangeShort, mondayOf, toISO,
 import { metaFor, labelFor, resolve, needsLabel, columnCentres, MAX_PER_DAY,
          LIMITS, GEO, TYPE } from '../static/js/tokens.js';
 import { measure, fitSize, truncateTo } from '../static/js/render.js';
+import { emptyState, sanitise, encodeState, decodeState,
+         isEmpty, countActivities } from '../static/js/state.js';
 
 let fails = 0;
 let count = 0;
@@ -80,6 +82,10 @@ eq(labelFor({ custom: 'hill repeats' }), 'HILL REPEATS', 'custom label');
 eq(labelFor({ tag: 'easy', custom: 'hill repeats' }), 'HILL REPEATS', 'custom beats preset');
 eq(labelFor({ custom: '   ' }), '', 'whitespace is no label');
 eq(labelFor({}), '', 'no label');
+eq(labelFor({ cat: 'workout', sub: 'hiit' }), 'HIIT', 'HIIT captions itself');
+eq(labelFor({ cat: 'workout', sub: 'hiit', tag: 'custom', custom: 'tabata' }), 'TABATA',
+  'a custom label overrides the default caption');
+eq(labelFor({ cat: 'workout', sub: 'strength' }), '', 'strength has no default caption');
 eq(resolve({ cat: 'cardio', sub: 'run' }).icon, 'run', 'run uses the shoe');
 eq(resolve({ cat: 'cardio', sub: 'run' }).acceptsMeta, true, 'cardio accepts a duration');
 eq(resolve({ cat: 'workout', sub: 'strength' }).acceptsMeta, true, 'workout accepts one too');
@@ -87,7 +93,8 @@ eq(resolve({ cat: 'mobility', sub: 'yoga' }).acceptsMeta, true, 'mobility accept
 eq(resolve({ cat: 'sport', sub: 'sport' }).acceptsMeta, true, 'sport accepts a duration');
 eq(resolve({ cat: 'cheat', sub: 'beer' }).acceptsMeta, false, 'cheat day does not');
 eq(resolve({ cat: 'rest', sub: 'rest' }).acceptsMeta, false, 'rest does not');
-eq(resolve({ cat: 'workout', sub: 'strength' }).icon, 'dumbbell', 'strength uses the dumbbell');
+eq(resolve({ cat: 'workout', sub: 'strength' }).icon, 'strength', 'strength uses the dumbbell glyph');
+eq(resolve({ cat: 'workout', sub: 'custom' }).icon, 'custom', 'workout custom uses the spark');
 eq(resolve({ cat: 'workout', sub: 'hiit' }).icon, 'hiit', 'HIIT keeps the stopwatch');
 eq(resolve({ cat: 'cardio', sub: 'custom' }).icon, 'custom', 'cardio custom uses the spark');
 eq(resolve({ cat: 'mobility', sub: 'custom' }).icon, 'custom', 'mobility custom uses the spark');
@@ -105,6 +112,8 @@ eq(needsLabel({ cat: 'cardio', sub: 'run', tag: 'easy' }), false, 'a preset tag 
 eq(needsLabel({ cat: 'workout', sub: 'strength' }), false, 'an untagged workout needs nothing');
 eq(needsLabel({ cat: 'rest', sub: 'rest' }), false, 'a rest day needs nothing');
 eq(needsLabel({ cat: 'sport', sub: 'sport' }), false, 'sport takes an optional name');
+eq(needsLabel({ cat: 'workout', sub: 'custom' }), true, 'a custom workout must be named');
+eq(needsLabel({ cat: 'workout', sub: 'hiit' }), false, 'HIIT needs nothing');
 
 section('input limits');
 eq(LIMITS.label, 12, 'labels cap at 12 characters');
@@ -178,6 +187,68 @@ const labelMax = pitch - 18;
   const short = fitSize(ctx, ['EASY'], TYPE.label, labelMax, 13);
   eq(short, TYPE.label.size, 'a row of short labels stays at full size');
 }
+
+section('state round trip');
+{
+  const original = {
+    title: 'Gym Block',
+    weekStart: '2026-07-20',
+    days: [
+      [{ cat: 'cardio', sub: 'run', tag: 'easy', amount: 5, unit: 'km' }],
+      [],
+      [{ cat: 'workout', sub: 'strength', tag: 'chest', amount: 45, unit: 'min' },
+       { cat: 'mobility', sub: 'yoga' }],
+      [{ cat: 'workout', sub: 'custom', custom: 'kettlebells' }],
+      [], [],
+      [{ cat: 'cheat', sub: 'beer' }],
+    ],
+  };
+  const encoded = encodeState(sanitise(original));
+  const back = decodeState(encoded);
+  eq(back.title, 'Gym Block', 'title survives');
+  eq(back.weekStart, '2026-07-20', 'week survives');
+  eq(back.days[0][0].amount, 5, 'amount survives');
+  eq(back.days[0][0].unit, 'km', 'unit survives');
+  eq(back.days[2].length, 2, 'a stacked day survives');
+  eq(back.days[3][0].custom, 'kettlebells', 'custom label survives');
+  eq(back.days[1].length, 0, 'an empty day stays empty');
+  eq(countActivities(back), 5, 'nothing was lost');
+  eq(encoded.length < 300, true, `encodes to ${encoded.length} characters`);
+  eq(/^[A-Za-z0-9_-]+$/.test(encoded), true, 'url-safe with no padding');
+}
+
+section('state is defensive about untrusted input');
+eq(decodeState('not-valid-base64!!'), null, 'garbage decodes to null');
+eq(decodeState(''), null, 'empty decodes to null');
+eq(decodeState(btoa('{"v":99}')), null, 'a future format is refused');
+{
+  const messy = sanitise({
+    title: 'x'.repeat(200),
+    weekStart: '2026-07-22',            // a Wednesday
+    days: [
+      [{ cat: 'nope', sub: 'nope' }],
+      [{ cat: 'cardio', sub: 'run', amount: -5, unit: 'km' }],
+      [{ cat: 'cardio', sub: 'run', amount: 99999999, unit: 'km' }],
+      [{ cat: 'cardio', sub: 'run', amount: 5, unit: 'furlongs' }],
+      [{ cat: 'workout', sub: 'strength', tag: 'not-a-tag' }],
+      [{ cat: 'rest', sub: 'rest' }, { cat: 'rest', sub: 'rest' }, { cat: 'rest', sub: 'rest' }],
+      'not an array',
+    ],
+  });
+  eq(messy.title.length, LIMITS.title, 'an overlong title is cut to the limit');
+  eq(messy.weekStart, '2026-07-20', 'a mid-week date snaps back to its Monday');
+  eq(messy.days[0].length, 0, 'an unknown category is dropped');
+  eq(messy.days[1][0].amount, undefined, 'a negative amount is dropped');
+  eq(messy.days[2][0].amount, 9999, 'an absurd amount is clamped');
+  eq(messy.days[3][0].amount, undefined, 'an unknown unit is dropped');
+  eq(messy.days[4][0].tag, undefined, 'an unknown tag is dropped');
+  eq(messy.days[5].length, MAX_PER_DAY, 'a third activity is dropped');
+  eq(messy.days[6].length, 0, 'a non-array day becomes empty');
+  eq(messy.days.length, 7, 'always seven days');
+}
+eq(isEmpty(emptyState()), true, 'a fresh week is empty');
+eq(sanitise(null).days.length, 7, 'null sanitises to a fresh week');
+eq(sanitise('nonsense').title, 'My Week', 'a string sanitises to a fresh week');
 
 section('geometry invariants');
 const c = columnCentres();

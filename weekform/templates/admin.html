@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>weekform — usage</title>
+<link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f5f7; --surface: #fff; --line: #e2e5e9;
+    --ink: #14161a; --soft: #6b7280; --faint: #9aa1a9; --accent: #ee4e1e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #101215; --surface: #1a1d21; --line: #2a2e34;
+            --ink: #e9ebee; --soft: #98a0a8; --faint: #6b737b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 28px 18px 64px; background: var(--bg); color: var(--ink);
+         font: 400 15px/1.5 "Space Grotesk", system-ui, sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 19px; font-weight: 700; margin: 0 0 2px; letter-spacing: -.2px; }
+  .sub { margin: 0 0 24px; color: var(--faint); font-size: 13px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+           gap: 10px; margin-bottom: 28px; }
+  .card { background: var(--surface); border: 1px solid var(--line);
+          border-radius: 10px; padding: 14px 15px; }
+  .card dt { font-size: 11.5px; text-transform: uppercase; letter-spacing: 1.2px;
+             color: var(--faint); margin: 0 0 5px; }
+  .card dd { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -1px;
+             font-variant-numeric: tabular-nums; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.3px;
+       color: var(--faint); font-weight: 500; margin: 0 0 12px; }
+  .chart { display: flex; align-items: flex-end; gap: 3px; height: 150px;
+           padding: 12px 14px; background: var(--surface);
+           border: 1px solid var(--line); border-radius: 10px; }
+  .bar { flex: 1; min-height: 2px; border-radius: 2px 2px 0 0;
+         background: var(--accent); opacity: .85; }
+  .bar.is-zero { background: var(--line); opacity: 1; }
+  .axis { display: flex; justify-content: space-between; margin-top: 7px;
+          font-size: 11.5px; color: var(--faint); }
+  .split { margin-top: 26px; font-size: 13.5px; color: var(--soft); }
+  .split span { font-variant-numeric: tabular-nums; }
+  .note { margin-top: 30px; font-size: 12.5px; color: var(--faint); max-width: 46em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Usage</h1>
+  <p class="sub">Strips shared. Nothing else is recorded.</p>
+
+  <dl class="cards">
+    <div class="card"><dt>All time</dt><dd>{{ total }}</dd></div>
+    <div class="card"><dt>Today</dt><dd>{{ today }}</dd></div>
+    <div class="card"><dt>Last 7 days</dt><dd>{{ last_7 }}</dd></div>
+    <div class="card"><dt>Last 30 days</dt><dd>{{ last_30 }}</dd></div>
+  </dl>
+
+  <h2>Last 30 days</h2>
+  <div class="chart">
+    {% for day, count in days %}
+      <div class="bar {{ 'is-zero' if count == 0 }}"
+           style="height: {{ (count / peak * 100) if peak else 0 }}%"
+           title="{{ day.strftime('%d %b') }}: {{ count }}"></div>
+    {% endfor %}
+  </div>
+  <div class="axis">
+    <span>{{ days[0][0].strftime('%d %b') }}</span>
+    <span>{{ days[-1][0].strftime('%d %b') }}</span>
+  </div>
+
+  <p class="split">
+    Native share sheet <span>{{ by_kind.get('share', 0) }}</span> ·
+    Downloaded instead <span>{{ by_kind.get('download', 0) }}</span>
+  </p>
+
+  <p class="note">
+    A high download share means the native sheet is unavailable — usually
+    desktop browsers, which do not all support sharing files.
+  </p>
+
+</div>
+</body>
+</html>

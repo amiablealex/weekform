@@ -128,9 +128,11 @@ export const CATEGORIES = [
     subs: [
       // Which body part it was is a label, not a glyph — the same shape as a
       // run's character. Four presets and a free-text option.
-      { id: 'strength', label: 'Strength', icon: 'dumbbell',
+      { id: 'strength', label: 'Strength', icon: 'strength',
         tags: ['upper body', 'chest', 'core', 'lower body'], custom: true },
-      { id: 'hiit', label: 'HIIT', icon: 'hiit' },
+      // HIIT carries its own caption — a bare stopwatch does not say what it is.
+      { id: 'hiit', label: 'HIIT', icon: 'hiit', defaultTag: 'hiit' },
+      { id: 'custom', label: 'Custom', icon: 'custom', custom: true, requiresLabel: true },
     ],
   },
   {
@@ -219,10 +221,16 @@ export function needsLabel(activity) {
   return sub.custom === true && activity.tag === 'custom';
 }
 
-// The label beneath a circle: a free-text custom label wins over a preset tag.
+/**
+ * The label beneath a circle. A free-text custom label wins over a preset tag,
+ * and a sub-type may declare a caption it always carries — HIIT does, because
+ * the stopwatch alone does not say what kind of session it was.
+ */
 export function labelFor(activity) {
   const text = (activity.custom || activity.tag || '').trim();
-  return text ? text.toUpperCase() : '';
+  if (text) return text.toUpperCase();
+  const sub = subType(activity.cat, activity.sub);
+  return sub && sub.defaultTag ? sub.defaultTag.toUpperCase() : '';
 }
 
 // "5km", "20min", "1h30", "2h", "3.2mi"

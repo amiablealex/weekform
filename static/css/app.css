@@ -1,0 +1,544 @@
+/* --------------------------------------------------------------------------
+   weekform — app chrome
+
+   The strip is the only thing on screen that matters, so everything else is
+   quiet. One rule holds it together: circles belong to activities and nothing
+   else. Every other surface is a 10px rectangle. Colour is spent in exactly two
+   places — the activity badges and the share button.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --line: #e2e5e9;
+  --ink: #14161a;
+  --ink-soft: #6b7280;
+  --ink-faint: #9aa1a9;
+  --accent: #ee4e1e;
+  --accent-ink: #ffffff;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(20, 22, 26, .06), 0 8px 24px rgba(20, 22, 26, .06);
+  --tap: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101215;
+    --surface: #1a1d21;
+    --line: #2a2e34;
+    --ink: #e9ebee;
+    --ink-soft: #98a0a8;
+    --ink-faint: #6b737b;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.45 "Space Grotesk", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.sheet-open { overflow: hidden; }
+
+.app {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 14px 14px 132px;
+}
+
+/* --- week bar ----------------------------------------------------------- */
+
+.weekbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.weekbar-step {
+  width: var(--tap);
+  height: var(--tap);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.weekbar-step:active { transform: scale(.96); }
+
+.weekbar-label {
+  flex: 1;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0 12px;
+}
+
+#week-label {
+  font-family: "Bricolage Grotesque", "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -.2px;
+}
+
+#week-rel {
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+#week-rel:empty { display: none; }
+
+/* --- the strip ---------------------------------------------------------- */
+
+.stage {
+  position: relative;
+  aspect-ratio: 1080 / 420;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+#strip {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.zone {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border-radius: 8px;
+}
+
+.zone:active { background: rgba(20, 22, 26, .05); }
+
+.zone:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* An untouched day. Editor only — the export is drawn on its own canvas. */
+.hint {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px dashed rgba(20, 22, 26, .22);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+
+.hint.is-on { opacity: 1; }
+
+/* --- actions ------------------------------------------------------------ */
+
+.actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+
+.actions-inner {
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  gap: 8px;
+}
+
+.btn {
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: 500 16px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.btn:active { transform: scale(.99); }
+
+.btn:disabled { opacity: .45; cursor: default; }
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.actions-minor {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-quiet {
+  flex: 1;
+  min-height: var(--tap);
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 400 14px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.btn-quiet.is-armed { color: var(--accent); font-weight: 500; }
+
+/* --- toast -------------------------------------------------------------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 128px;
+  transform: translate(-50%, 8px);
+  max-width: 90vw;
+  padding: 9px 15px;
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* --- sheet -------------------------------------------------------------- */
+
+.sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 12, 15, .42);
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+
+.sheet-root.is-open .sheet-backdrop { opacity: 1; }
+
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 86vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform .2s cubic-bezier(.32, .72, 0, 1);
+}
+
+.sheet-root.is-open .sheet { transform: translateY(0); }
+
+@media (min-width: 620px) {
+  .sheet {
+    left: 50%;
+    right: auto;
+    bottom: 24px;
+    width: 560px;
+    transform: translate(-50%, 120%);
+    border-radius: 16px;
+  }
+  .sheet-root.is-open .sheet { transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .sheet-backdrop, .hint, .toast { transition: none; }
+}
+
+.sheet-grip {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  margin: 4px auto 10px;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.sheet-title {
+  margin: 0;
+  font-family: "Bricolage Grotesque", "Space Grotesk", sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -.2px;
+}
+
+.sheet-close {
+  min-height: var(--tap);
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: 500 15px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.sheet-sub {
+  margin: 18px 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.3px;
+  color: var(--ink-faint);
+}
+
+.sheet-note {
+  margin: 14px 0 2px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.sheet-back {
+  min-height: var(--tap);
+  margin-bottom: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 400 15px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.sheet-save { width: 100%; margin-top: 22px; }
+
+/* --- category grid ------------------------------------------------------ */
+
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px 6px;
+}
+
+.cat-tile {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 8px 2px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cat-tile:active { background: var(--bg); }
+
+.cat-name {
+  font-size: 11.5px;
+  line-height: 1.2;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.badge { display: block; line-height: 0; }
+.badge svg { display: block; width: 100%; height: auto; }
+.cat-tile .badge { width: 46px; }
+
+/* --- chips -------------------------------------------------------------- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 15px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.chip.is-on {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.chips.units .chip {
+  min-width: 52px;
+  padding: 0 10px;
+  text-transform: none;
+}
+
+/* --- fields ------------------------------------------------------------- */
+
+.text-field {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px "Space Grotesk", system-ui, sans-serif;
+}
+
+.text-field:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.amount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.text-field.amount {
+  width: 96px;
+  margin-top: 0;
+}
+
+/* --- detail preview ----------------------------------------------------- */
+
+.detail-preview {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 12px 0 4px;
+}
+
+.detail-preview .badge { width: 78px; }
+
+.detail-caption {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* --- entries ------------------------------------------------------------ */
+
+.entry-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 8px 7px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.entry .badge { width: 38px; flex: none; }
+
+.entry-text { flex: 1; display: grid; min-width: 0; }
+
+.entry-name { font-size: 15px; }
+
+.entry-detail {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+}
+
+.entry-remove {
+  width: var(--tap);
+  height: var(--tap);
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.entry-remove:active { background: var(--bg); }
+
+/* --- week list ---------------------------------------------------------- */
+
+.week-list { display: grid; gap: 4px; }
+
+.week-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: 400 16px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+  text-align: left;
+}
+
+.week-row:active { background: var(--bg); }
+
+.week-row.is-on {
+  border-color: var(--ink);
+  font-weight: 500;
+}
+
+.week-rel {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  color: var(--ink-faint);
+}
