@@ -1,3 +1,11 @@
+An online web tool for generating a nice shareable image strip summarising a week of workouts.
+
+Made because I wanted it for myself, to share my fitness progress to group chats in a way that wasn't simply flooding the channel with every workout.
+
+<img width="2160" height="840" alt="strip" src="https://github.com/user-attachments/assets/6c7afd58-bb18-46a7-8690-587e1bcb2b8e" />
+
+And here's the stuff that Claude generated for this project:
+
 # weekform
 
 A tool that turns a week of training into one wide image you can drop straight
