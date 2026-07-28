@@ -4,7 +4,8 @@ Signed out, nothing is stored about anybody: `share_events` counts strips and
 holds no addresses, no user agents and nothing about what a strip contained.
 
 Signing in changes that, and only by what it has to. An account is an email
-address, a password hash, and the weeks that person chose to save. A week is
+address, a password hash, the weeks that person chose to save, and any goals
+they set. A week is
 stored as the same opaque blob the URL fragment already carries — the server
 never parses it, never looks inside it, and does not know what a doughnut is.
 That is partly principle and partly design: activity types stay a client-side
@@ -60,6 +61,8 @@ class User(db.Model):
     # backstop for anything that reaches the tables another way.
     weeks = db.relationship("Week", back_populates="user",
                             cascade="all, delete-orphan")
+    goals = db.relationship("Goal", back_populates="user",
+                            cascade="all, delete-orphan")
     resets = db.relationship("PasswordReset", back_populates="user",
                              cascade="all, delete-orphan")
 
@@ -86,6 +89,37 @@ class Week(db.Model):
                            default=_utcnow, onupdate=_utcnow)
 
     user = db.relationship("User", back_populates="weeks")
+
+
+class Goal(db.Model):
+    """One goal. `payload` is opaque JSON, never inspected by the server.
+
+    A row per goal rather than one document per user, so two open tabs cannot
+    lose each other's edits, and so deleting one goal is a delete rather than a
+    rewrite of the whole set.
+
+    The server knows a goal has an id, a name and some parts. It does not know
+    what a part is, which keeps the activity taxonomy a client-side concern
+    exactly as it is for weeks.
+    """
+
+    __tablename__ = "goals"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "goal_id", name="uq_goal_per_user"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer,
+                        db.ForeignKey("users.id", ondelete="CASCADE"),
+                        nullable=False, index=True)
+    goal_id = db.Column(db.String(16), nullable=False)
+    payload = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow, onupdate=_utcnow)
+
+    user = db.relationship("User", back_populates="goals")
 
 
 class PasswordReset(db.Model):
@@ -197,6 +231,10 @@ def users_with_weeks() -> int:
 
 def total_weeks() -> int:
     return db.session.scalar(db.select(func.count(Week.id))) or 0
+
+
+def total_goals() -> int:
+    return db.session.scalar(db.select(func.count(Goal.id))) or 0
 
 
 def total_deletions() -> int:

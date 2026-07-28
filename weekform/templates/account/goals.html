@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Goals — weekform{% endblock %}
+{% set back_href = url_for('account.history') %}
+{% set back_label = 'History' %}
+
+{% block headright %}
+  <a class="page-link" href="{{ url_for('account.settings') }}">Settings</a>
+{% endblock %}
+
+{% block content %}
+
+<h1>Goals</h1>
+<p class="lede">A goal is a rule about one week, checked against what you enter.
+  It is worked out on your device each time and never stored as a result.</p>
+
+<div id="goal-list" class="goal-list"></div>
+
+<button type="button" class="btn" id="goal-add">New goal</button>
+
+<p class="cal-note" id="goal-note"></p>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/goalspage.js') }}"></script>
+{% endblock %}

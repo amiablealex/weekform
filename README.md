@@ -13,6 +13,9 @@ And here's the stuff that Claude generated for this project:
 Turns a week of training into one wide image for a group chat. Seven circles,
 Monday to Sunday. No feed, no streaks, no accounts required.
 
+With an account there is also a calendar of past weeks, and goals — simple
+weekly rules drawn under your week and worked out as you type.
+
 The browser does the work: the canvas on screen *is* the exported PNG, and weeks
 live in `localStorage` and the URL fragment. Flask serves the page, counts
 shares, and — for signed-in users — stores weeks as opaque blobs it never reads.
@@ -32,7 +35,7 @@ The renderer has its own harness needing no server — `python3 -m http.server
 8000`, then `/harness.html`.
 
 ```bash
-node tests/logic.test.mjs     # 147 assertions, no dependencies
+node tests/logic.test.mjs     # 224 assertions, no dependencies
 ```
 
 ## Deploy
@@ -74,8 +77,9 @@ tests/logic.test.mjs   assertions for the pure logic
 Signed out, nothing is uploaded. One number is counted when a strip is shared:
 that it happened.
 
-Signed in, stored data is an email address, a password hash, and the weeks you
-save — never read, never sold, never shared. Deleting an account removes
+Signed in, stored data is an email address, a password hash, the weeks you save
+and any goals you set — never read, never sold, never shared. Whether a goal is
+met is worked out in your browser and never leaves it. Deleting an account removes
 everything at once. Everything held can be downloaded from Settings.
 
 Full statement at `/privacy`.

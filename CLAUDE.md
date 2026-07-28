@@ -9,6 +9,10 @@ A tool that turns a week of training into one wide PNG for a group chat. Seven
 circles, Monday to Sunday. It is a calculator, not an app: no feed, no streaks,
 no encouragement. Accounts are optional and everything works without one.
 
+Signed in, there is also a calendar of past weeks and a set of goals. A goal is
+a rule about one week, checked against what is on screen and never stored as a
+result. That is what keeps it a calculator rather than a habit tracker.
+
 ## Architecture in one breath
 
 The browser does the work. `render.js` draws the strip on a canvas that *is* the
@@ -28,15 +32,19 @@ detail to slip into an unrelated change.
 2. **`tokens.js` is the single source of design truth.** Colours, geometry,
    typography, the activity taxonomy, the domain in the footer. No hex codes or
    magic numbers anywhere else.
-3. **The picker is generated from `CATEGORIES`.** Adding an activity type, a
+3. **The pickers are generated from `CATEGORIES`.** Adding an activity type, a
    sub-type or a preset label must be a data change in `tokens.js` and nothing
-   else. If a change to the taxonomy requires editing `sheet.js`, the design is
-   wrong.
+   else. If a change to the taxonomy requires editing `sheet.js` or
+   `goalsheet.js`, the design is wrong. Which categories may be a goal is the
+   `goals: false` flag on the category, not a list in the builder.
 4. **The server never parses week payloads.** It checks size and shape, then
    stores the blob. This is what keeps activity types a client-side concern.
 5. **Circles mean activities.** Every other surface in the UI is a 10px
-   rectangle. The only exceptions are the status dot in the week picker and the
-   three-dot app icon.
+   rectangle. The exceptions are the status dot in the week picker, the
+   three-dot app icon, and a goal card's day marks — small dots, roughly a
+   fifth of an activity circle, in the same family as the week picker's. A
+   goal's met/not-met mark is a bare tick or cross with no circle around it,
+   deliberately.
 6. **Two colour tiers.** Training days: saturated fill, white glyph.
    Non-training days (rest, illness, vacation): tinted fill, deep same-hue
    glyph. Partly forced by contrast, partly deliberate — effort should be loud
@@ -46,8 +54,16 @@ detail to slip into an unrelated change.
 8. **The signed-out path must keep working.** `localStorage` is the working
    copy; the server is a second home for it. Nothing may require an account or a
    network.
-9. **Deletion must actually delete.** ORM cascade *and* database cascade. See
-   the traps below for why both.
+9. **Deletion must actually delete.** ORM cascade *and* database cascade, for
+   weeks and for goals. See the traps below for why both.
+10. **Goals are computed, never recorded.** Whether a goal was met is worked out
+   from the week on screen every time it is drawn. Nothing stores an outcome and
+   nothing may start to. A record of met and missed weeks is a streak, and
+   streaks are on the refused list at the bottom of this file.
+11. **Green means one thing.** `GOAL.ok` is the only green in the app and means
+   "this goal is met". Goal marks take their category's colour, never green —
+   mobility is already green, and a mobility goal drawn in green would look
+   permanently complete.
 
 ## Where to change what
 
@@ -55,6 +71,10 @@ detail to slip into an unrelated change.
 |---|---|
 | Add or change an activity type, sub-type, preset label | `static/js/tokens.js` |
 | Redraw an icon | `static/js/icons.js` (op list at the top explains the vocabulary) |
+| Change what a goal means, or how progress is worked out | `static/js/goals.js` — pure, and covered by the test suite |
+| Change how a goal card looks | `static/js/goalstrip.js`, sizes in `GOAL` in `tokens.js` |
+| Change the goal builder | `static/js/goalsheet.js` (it borrows the sheet shell from `sheet.js`) |
+| Change the goals page | `static/js/goalspage.js`, `templates/account/goals.html` |
 | Change strip colours, sizes, spacing, the footer domain | `static/js/tokens.js` |
 | Change how the strip is drawn | `static/js/render.js` |
 | Change the picker's behaviour | `static/js/sheet.js` |
@@ -67,14 +87,19 @@ detail to slip into an unrelated change.
 ## Verify before delivering anything
 
 ```bash
-node tests/logic.test.mjs        # 147 assertions, pure logic, no dependencies
-python3 -m http.server 8000      # then /harness.html to look at the renderer
+node tests/logic.test.mjs        # 224 assertions, pure logic, no dependencies
+python3 -m http.server 8000      # then /harness.html for the strip and goal cards
 flask --app weekform run --debug # needs SECRET_KEY and ADMIN_PASSWORD set
 ```
 
+`harness.html` carries goal cases as well as strips, so a change to a goal card
+can be looked at without an account.
+
 There is no Python test suite yet. That is the largest known gap — see below.
-Until it exists, any change to `auth.py`, `sync.py` or the models needs to be
-exercised by hand against a throwaway SQLite database before it ships.
+Until it exists, any change to `auth.py`, `sync.py`, `goals.py` or the models
+needs to be exercised by hand against a throwaway SQLite database before it
+ships — including that deleting an account still removes every week *and* every
+goal.
 
 A useful habit that has caught real bugs here: check that every named import
 resolves and that every element id referenced in JS exists in its template.
@@ -125,8 +150,8 @@ Each of these cost a deploy or a release. Do not reintroduce them.
 
 Roughly in order of how likely they are to matter.
 
-1. **No Python tests.** Auth, sync isolation, reset and deletion were verified
-   by hand. Nothing guards them now. Highest-value work available.
+1. **No Python tests.** Auth, sync isolation, goal isolation, reset and deletion
+   were verified by hand. Nothing guards them now. Highest-value work available.
 2. **The SQLite fallback is dangerous now.** If `DATABASE_URL` goes missing the
    app boots on SQLite on an ephemeral disk, works fine, and loses every account
    on the next deploy. Consider making it fatal outside debug.
@@ -146,5 +171,10 @@ Roughly in order of how likely they are to matter.
 Do not propose these without being asked: streaks, badges, leaderboards, social
 features, notifications, analytics, onboarding, more than two activities per
 day, AI-generated encouragement, a mobile app.
+
+Goals specifically must not grow: no history of which weeks a goal was met, no
+"four weeks running", no reminder that a goal is behind, no goals in the
+exported image, no goal that spans anything other than one week. Each of those
+is the streaks feature arriving by another door.
 
 The value of this thing is that it does one job and stops.

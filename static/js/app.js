@@ -24,6 +24,7 @@ const shareBtn = $('share');
 const copyBtn = $('copy');
 const clearBtn = $('clear');
 const toastNode = $('toast');
+const goalHost = $('goals');       // absent unless signed in
 
 let state = emptyState();
 
@@ -129,6 +130,34 @@ function dayLabel(i) {
     'Friday', 'Saturday', 'Sunday'][i];
 }
 
+// --- goals -----------------------------------------------------------------
+// Signed out there is no host element and none of this loads, so that page
+// fetches exactly the modules it fetched before. Goals are never drawn onto the
+// canvas — they sit under it, and the exported image is unchanged.
+
+let goals = [];
+let drawGoals = null;
+
+function paintGoals() {
+  if (drawGoals && goalHost) drawGoals(goalHost, goals, state);
+}
+
+async function initGoals() {
+  if (!isSignedIn() || !goalHost) return;
+  try {
+    const [strip, store] = await Promise.all([
+      import('./goalstrip.js'),
+      import('./goalsync.js'),
+    ]);
+    goals = await store.fetchGoals();
+    drawGoals = strip.renderGoals;
+    paintGoals();
+  } catch (err) {
+    // A goal that will not load is not worth interrupting anybody's week for.
+    console.warn('weekform: could not load goals', err);
+  }
+}
+
 // --- rendering -------------------------------------------------------------
 
 function scheduleExport() {
@@ -156,6 +185,7 @@ function paint() {
     `Week of ${formatRange(state.weekStart)}. Change week`);
   $('week-rel').textContent = name || '';
   refreshOverlay();
+  paintGoals();
   shareBtn.disabled = false;
   scheduleExport();
 }
@@ -325,6 +355,7 @@ async function boot() {
       if (pushed) toast(`${pushed} week${pushed === 1 ? '' : 's'} saved to your account`);
       else if (pulled) toast('History loaded');
     });
+    initGoals();
   }
 
   $('week-prev').addEventListener('click', () => step(-1));
@@ -333,6 +364,11 @@ async function boot() {
   shareBtn.addEventListener('click', onShare);
   copyBtn.addEventListener('click', onCopy);
   clearBtn.addEventListener('click', onClear);
+
+  // Goal cards carry their own colours in generated SVG, so a change of scheme
+  // needs a repaint rather than a CSS rule.
+  const scheme = matchMedia('(prefers-color-scheme: dark)');
+  if (scheme.addEventListener) scheme.addEventListener('change', paintGoals);
 
   window.addEventListener('hashchange', () => {
     const incoming = readHash();

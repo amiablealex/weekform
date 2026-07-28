@@ -95,6 +95,37 @@ export const GEO = {
   iconFillWithMeta: 0.36,
 };
 
+// --- goals -----------------------------------------------------------------
+// A goal card is drawn in the same 1080-wide coordinate space as the strip, so
+// its day marks land on `columnCentres()` and line up with the circles above
+// them by construction rather than by a fudged percentage.
+//
+// `ok` is the only green in the app and means one thing: this goal is met. It
+// is deliberately not any palette colour — mobility is already green, and a
+// mobility goal that looked permanently complete would be worse than useless.
+
+// A goal card sits on --surface rather than on the strip's white paper, so it
+// has to work in both schemes. An unfilled mark that is lighter than its
+// background reads as a filled one; the dark values are darker than --surface
+// is light, for the same reason.
+export const GOAL = {
+  ok:          '#2E8B4F',
+  okDark:      '#4FBF74',
+  pending:     '#CDD2D8',
+  pendingDark: '#343941',
+
+  // Above this many marks a dot grid reads as noise, so the goal is drawn as
+  // an area chart instead. Distance and duration goals always are.
+  maxDots: 4,
+
+  plotH:    148,   // plot height in strip units, constant so cards match
+  plotPad:   14,
+  dotR:      13,   // roughly a fifth of GEO.circleR — small enough not to be
+  dotPitch:  34,   // mistaken for an activity
+  lineW:      5,
+  areaAlpha: 0.16,
+};
+
 // Seven evenly spaced circle centres across the usable width.
 export function columnCentres() {
   const usable = GEO.width - GEO.padX * 2;
@@ -151,15 +182,20 @@ export const CATEGORIES = [
     subs: [{ id: 'rest', label: 'Rest day', icon: 'rest' }],
   },
   {
+    // goals:false — nobody sets out to be ill, on holiday, or to eat a
+    // doughnut on schedule. Absent means allowed, so rest days are goal-able.
     id: 'illness', label: 'Illness / injury', palette: 'illness', meta: false,
+    goals: false,
     subs: [{ id: 'illness', label: 'Illness / injury', icon: 'illness' }],
   },
   {
     id: 'vacation', label: 'Vacation', palette: 'vacation', meta: false,
+    goals: false,
     subs: [{ id: 'vacation', label: 'Vacation', icon: 'vacation' }],
   },
   {
     id: 'cheat', label: 'Cheat day', palette: 'cheat', meta: false,
+    goals: false,
     subs: [
       { id: 'doughnut', label: 'Doughnut', icon: 'doughnut' },
       { id: 'beer',     label: 'Beer',     icon: 'beer' },
@@ -182,6 +218,9 @@ export const MAX_PER_DAY = 2;
 export const LIMITS = {
   title: 22,
   label: 12,
+  goalName: 28,
+  goals: 6,          // a page of goals is a dashboard, which this is not
+  reqs: 4,           // parts within one goal
 };
 
 // --- lookups --------------------------------------------------------------
@@ -190,6 +229,11 @@ const catIndex = new Map(CATEGORIES.map((c) => [c.id, c]));
 
 export function category(id) {
   return catIndex.get(id) || null;
+}
+
+/** The categories a goal may be built from. Data, not a list in the builder. */
+export function goalCategories() {
+  return CATEGORIES.filter((c) => c.goals !== false);
 }
 
 export function subType(catId, subId) {

@@ -66,7 +66,9 @@
   <p class="guide">Tap a day to add what you did, then share the image.</p>
   {% if current_user() %}
     <p class="guide guide-quiet">
-      Weeks are saved to your account. <a href="{{ url_for('account.history') }}">See your history</a>.
+      Weeks are saved to your account.
+      <a href="{{ url_for('account.history') }}">See your history</a> or
+      <a href="{{ url_for('account.goals') }}">set goals</a>.
     </p>
   {% else %}
     <p class="guide guide-quiet">
@@ -74,6 +76,12 @@
       clearing your browser data clears them —
       <a href="{{ url_for('auth.signup_form') }}">sign up to keep them</a>.
     </p>
+  {% endif %}
+
+  {% if current_user() %}
+    {# Filled by app.js when goals are loaded. Stays out of the signed-out page
+       entirely, and never appears in the exported image. #}
+    <section class="goals" id="goals" aria-label="Goals" hidden></section>
   {% endif %}
 </main>
 

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from flask import (Blueprint, Response, flash, redirect, render_template,
                    request, url_for)
 
-from ..models import AccountDeletion, User, Week, db
+from ..models import AccountDeletion, Goal, User, Week, db
 from ..security import (csrf_ok, current_user, log_out, login_required,
                         verify_password)
 
@@ -23,6 +23,17 @@ def history():
                            welcome=request.args.get("welcome") == "1")
 
 
+@bp.get("/goals")
+@login_required
+def goals():
+    """The only place goals are created, edited or deleted.
+
+    The page itself is empty markup; goalspage.js fills it from /api/goals. The
+    server does not render a goal, because it does not know what one contains.
+    """
+    return render_template("account/goals.html", user=current_user())
+
+
 @bp.get("/settings")
 @login_required
 def settings():
@@ -30,7 +41,11 @@ def settings():
     saved = db.session.scalar(
         db.select(db.func.count(Week.id)).where(Week.user_id == user.id)
     ) or 0
-    return render_template("account/settings.html", user=user, saved=saved)
+    goals = db.session.scalar(
+        db.select(db.func.count(Goal.id)).where(Goal.user_id == user.id)
+    ) or 0
+    return render_template("account/settings.html", user=user, saved=saved,
+                           goals=goals)
 
 
 @bp.get("/export")
@@ -40,6 +55,9 @@ def export():
     user = current_user()
     weeks = db.session.scalars(
         db.select(Week).where(Week.user_id == user.id).order_by(Week.week_start)
+    ).all()
+    goals = db.session.scalars(
+        db.select(Goal).where(Goal.user_id == user.id).order_by(Goal.created_at)
     ).all()
 
     document = {
@@ -55,6 +73,14 @@ def export():
                 **json.loads(week.payload),
             }
             for week in weeks
+        ],
+        "goals": [
+            {
+                "created": goal.created_at.isoformat(),
+                "updated": goal.updated_at.isoformat(),
+                **json.loads(goal.payload),
+            }
+            for goal in goals
         ],
         "note": "This is everything weekform holds about this account.",
     }

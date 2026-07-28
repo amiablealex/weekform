@@ -621,3 +621,151 @@ body.sheet-open { overflow: hidden; }
   letter-spacing: 1.1px;
   color: var(--ink-faint);
 }
+
+/* --- goals -------------------------------------------------------------- */
+/* Cards under the strip, one per active goal. The plot inside each is drawn in
+   the strip's own 1080-wide coordinate space, so it scales with the page and
+   its day marks stay under the circles they refer to. */
+
+.goals {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* `hidden` alone loses to `display: grid`. */
+.goals[hidden] { display: none; }
+
+.goal-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px 10px;
+}
+
+.goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.goal-name {
+  margin: 0;
+  min-width: 0;
+  font-family: "Bricolage Grotesque", "Space Grotesk", sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.goal-meta {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-summary {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-status { line-height: 0; }
+
+.goal-plot { margin-top: 6px; line-height: 0; }
+.goal-plot svg { display: block; width: 100%; height: auto; }
+
+/* --- goal builder ------------------------------------------------------- */
+
+.goal-req {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.goal-req .text-field { margin-top: 0; }
+
+.goal-req-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.goal-req-n {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: var(--ink-faint);
+}
+
+.goal-req-drop {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.goal-req-drop:active { background: var(--bg); }
+
+.goal-add {
+  width: 100%;
+  min-height: var(--tap);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-soft);
+  font: 400 14px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.goal-unit {
+  font-size: 14px;
+  color: var(--ink-faint);
+}
+
+.goal-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+
+.goal-preview {
+  margin: 20px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.goal-range {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.goal-range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.goal-range-label {
+  flex: none;
+  width: 52px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.goal-range-row .text-field { margin-top: 0; }

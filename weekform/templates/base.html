@@ -43,6 +43,12 @@
   <a href="{{ url_for('main.privacy') }}">Privacy</a>
 </footer>
 
+<script>
+  window.WEEKFORM = {
+    signedIn: {{ 'true' if current_user() else 'false' }},
+    csrf: "{{ csrf_token() }}"
+  };
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

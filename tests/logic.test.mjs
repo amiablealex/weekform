@@ -9,6 +9,9 @@ import { defaultWeekStart, formatRange, formatRangeShort, mondayOf, toISO,
 import { metaFor, labelFor, resolve, needsLabel, columnCentres, MAX_PER_DAY,
          LIMITS, GEO, TYPE } from '../static/js/tokens.js';
 import { measure, fitSize, truncateTo } from '../static/js/render.js';
+import { sanitiseGoal, sanitiseGoals, evaluate, isActive, activeGoals,
+         toCanonical, fromCanonical, contribution, matches, describe,
+         goalCategories, newGoalId } from '../static/js/goals.js';
 // A localStorage stub, installed before state.js loads so the archive has
 // somewhere to live. Node has no DOM; the archive is pure logic otherwise.
 globalThis.localStorage = (() => {
@@ -342,6 +345,261 @@ const chord = 2 * Math.sqrt(GEO.circleR ** 2 - GEO.metaY ** 2);
 eq(chord > 60, true, `duration chord is ${chord.toFixed(1)}px wide`);
 eq(GEO.labelY > GEO.circleY + GEO.circleR, true, 'label sits below the circle');
 eq(GEO.footerY < GEO.height, true, 'footer sits inside the canvas');
+
+
+// --- goals -----------------------------------------------------------------
+
+const blankDays = () => [[], [], [], [], [], [], []];
+const wk = (fill) => {
+  const days = blankDays();
+  if (fill) fill(days);
+  return { title: 'My Week', weekStart: '2026-07-20', days };
+};
+const r3 = (n) => Math.round(n * 1000) / 1000;
+const goal = (over) => sanitiseGoal({ id: 'abcd1234', name: 'G', cat: 'cardio',
+  from: null, to: null, reqs: [], ...over });
+
+section('goals — which categories may be one');
+{
+  const ids = goalCategories().map((c) => c.id);
+  eq(ids.includes('cardio'), true, 'cardio can be a goal');
+  eq(ids.includes('rest'), true, 'rest days can be a goal');
+  eq(ids.includes('illness'), false, 'illness cannot');
+  eq(ids.includes('vacation'), false, 'vacation cannot');
+  eq(ids.includes('cheat'), false, 'cheat days cannot');
+  eq(/^[a-z0-9]{8}$/.test(newGoalId()), true, 'generated ids match the stored shape');
+}
+
+section('goals — sanitising untrusted input');
+{
+  eq(sanitiseGoal(null), null, 'null is not a goal');
+  eq(sanitiseGoal({ id: 'x', cat: 'cardio', reqs: [{ metric: 'count', target: 1 }] }),
+    null, 'a short id is rejected');
+  eq(goal({ cat: 'illness', reqs: [{ metric: 'count', target: 1 }] }), null,
+    'a goal cannot be built on illness');
+  eq(goal({ cat: 'nonsense', reqs: [{ metric: 'count', target: 1 }] }), null,
+    'an unknown category is rejected');
+  eq(goal({ reqs: [] }), null, 'a goal with no parts is rejected');
+  eq(goal({ reqs: [{ metric: 'count', target: 0 }] }), null, 'a zero target is rejected');
+  eq(goal({ reqs: [{ metric: 'distance', target: 5 }] }), null,
+    'a distance with no unit is rejected');
+  eq(goal({ reqs: [{ sub: 'gone', metric: 'count', target: 1 }] }), null,
+    'a sub-type that no longer exists drops the part');
+
+  const rest = sanitiseGoal({ id: 'restgoal', name: 'Two rest days', cat: 'rest',
+    reqs: [{ metric: 'distance', target: 3, unit: 'km' }] });
+  eq(rest.reqs[0].metric, 'count', 'a category with no amounts can only be counted');
+  eq(rest.reqs[0].target, 3, 'its target survives as a count');
+
+  const many = goal({ reqs: Array.from({ length: 9 },
+    () => ({ metric: 'count', target: 1 })) });
+  eq(many.reqs.length, LIMITS.reqs, `parts are capped at ${LIMITS.reqs}`);
+
+  const swapped = goal({ from: '2026-08-17', to: '2026-07-20',
+    reqs: [{ metric: 'count', target: 1 }] });
+  eq(swapped.from, '2026-07-20', 'a backwards range is swapped, not rejected');
+  eq(swapped.to, '2026-08-17', 'and its end is kept');
+
+  const unnamed = goal({ name: '   ', reqs: [{ metric: 'count', target: 1 }] });
+  eq(unnamed.name, 'Cardio', 'an unnamed goal falls back to its category');
+
+  const dupes = sanitiseGoals([
+    { id: 'aaaa1111', cat: 'cardio', reqs: [{ metric: 'count', target: 1 }] },
+    { id: 'aaaa1111', cat: 'cardio', reqs: [{ metric: 'count', target: 2 }] },
+    { id: 'bbbb2222', cat: 'cardio', reqs: [{ metric: 'count', target: 1 }] },
+  ]);
+  eq(dupes.length, 2, 'a repeated id is dropped');
+}
+
+section('goals — units are canonical');
+{
+  eq(toCanonical(5, 'km', 'distance'), 5000, '5km is 5000 metres');
+  eq(r3(toCanonical(1, 'mi', 'distance')), 1609.344, 'a mile is 1609.344 metres');
+  eq(toCanonical(1.5, 'h', 'duration'), 90, '1.5h is 90 minutes');
+  eq(toCanonical(0, 'km', 'distance'), 0, 'nothing is nothing');
+  eq(toCanonical('x', 'km', 'distance'), 0, 'unparseable is nothing');
+  eq(fromCanonical(5000, 'km', 'distance'), 5, 'and back again');
+  eq(r3(fromCanonical(3218.688, 'mi', 'distance')), 2, 'metres back to miles');
+}
+
+section('goals — what an activity contributes');
+{
+  const run10 = { cat: 'cardio', sub: 'run', amount: 10, unit: 'km' };
+  const run30 = { cat: 'cardio', sub: 'run', amount: 30, unit: 'min' };
+  const bare = { cat: 'cardio', sub: 'run' };
+
+  eq(contribution(run10, { metric: 'count', target: 1 }), 1, 'any run is one run');
+  eq(contribution(bare, { metric: 'count', target: 1 }), 1,
+    'a run with no amount is still one run');
+  eq(contribution(bare, { metric: 'distance', target: 1, unit: 'km' }), 0,
+    'but it is not any kilometres');
+  eq(contribution(run30, { metric: 'distance', target: 1, unit: 'km' }), 0,
+    'minutes add nothing to a distance goal');
+  eq(contribution(run30, { metric: 'duration', target: 1, unit: 'min' }), 30,
+    'and everything to a duration one');
+
+  eq(matches(run10, { metric: 'count', target: 1 }, 'cardio'), true,
+    'no filters matches anything in the category');
+  eq(matches(run10, { sub: 'swim', metric: 'count', target: 1 }, 'cardio'), false,
+    'a sub-type filter excludes');
+  eq(matches(run10, { metric: 'count', target: 1 }, 'workout'), false,
+    'another category never matches');
+  eq(matches({ cat: 'cardio', sub: 'run', tag: 'easy' },
+    { label: 'Easy', metric: 'count', target: 1 }, 'cardio'), true,
+    'labels match regardless of case');
+}
+
+section('goals — counting a week');
+{
+  const g = goal({ cat: 'workout', name: '2x workout',
+    reqs: [{ metric: 'count', target: 2 }] });
+  const week = wk((d) => {
+    d[1] = [{ cat: 'workout', sub: 'strength' }];
+    d[3] = [{ cat: 'workout', sub: 'strength' }];
+  });
+  const out = evaluate(g, week);
+  eq(out.series.map(r3).join(','), '0,0.5,0.5,1,1,1,1', 'progress steps on the day it happens');
+  eq(out.dotSeries.join(','), '0,1,1,2,2,2,2', 'and the dots fill with it');
+  eq(out.met, true, 'two of two is met');
+  eq(out.useDots, true, 'a small count is drawn as dots');
+  eq(out.marks, 2, 'one dot per unit of the target');
+  eq(out.summary, '2 of 2', 'summary counts whole things');
+
+  const short = evaluate(g, wk((d) => { d[1] = [{ cat: 'workout', sub: 'strength' }]; }));
+  eq(short.met, false, 'one of two is not met');
+  eq(short.summary, '1 of 2', 'and says so');
+
+  const other = evaluate(g, wk((d) => { d[1] = [{ cat: 'cardio', sub: 'run' }]; }));
+  eq(other.series[6], 0, 'another category does not count towards it');
+}
+
+section('goals — distance across a week');
+{
+  const g = goal({ name: 'Run 20km',
+    reqs: [{ sub: 'run', metric: 'distance', target: 20, unit: 'km' }] });
+
+  const half = evaluate(g, wk((d) => {
+    d[2] = [{ cat: 'cardio', sub: 'run', amount: 10, unit: 'km' }];
+  }));
+  eq(half.series.map(r3).join(','), '0,0,0.5,0.5,0.5,0.5,0.5', 'the line rises on Wednesday');
+  eq(half.met, false, 'and half is not met');
+  eq(half.useDots, false, 'a distance is never dots');
+  eq(half.summary, '10 / 20km', 'summary is in the goal\u2019s own unit');
+
+  const full = evaluate(g, wk((d) => {
+    d[2] = [{ cat: 'cardio', sub: 'run', amount: 10, unit: 'km' }];
+    d[4] = [{ cat: 'cardio', sub: 'run', amount: 10, unit: 'km' }];
+  }));
+  eq(full.met, true, 'the second half meets it');
+  eq(full.series[6], 1, 'and fills the chart');
+
+  const miles = evaluate(g, wk((d) => {
+    d[0] = [{ cat: 'cardio', sub: 'run', amount: 12.5, unit: 'mi' }];
+  }));
+  eq(miles.met, true, '12.5mi meets a 20km goal');
+
+  const over = evaluate(g, wk((d) => {
+    d[0] = [{ cat: 'cardio', sub: 'run', amount: 30, unit: 'km' }];
+  }));
+  eq(over.series[6], 1, 'an overshoot is capped at full');
+  eq(over.summary, '30 / 20km', 'but the real figure is still shown');
+
+  const bike = evaluate(g, wk((d) => {
+    d[0] = [{ cat: 'cardio', sub: 'bike', amount: 30, unit: 'km' }];
+  }));
+  eq(bike.series[6], 0, 'a bike ride does not count towards a running goal');
+}
+
+section('goals — several parts at once');
+{
+  const g = goal({ cat: 'workout', name: 'Full body', reqs: [
+    { sub: 'strength', label: 'upper body', metric: 'count', target: 1 },
+    { sub: 'strength', label: 'core', metric: 'count', target: 1 },
+    { sub: 'strength', label: 'lower body', metric: 'count', target: 1 },
+  ] });
+
+  const two = evaluate(g, wk((d) => {
+    d[0] = [{ cat: 'workout', sub: 'strength', tag: 'upper body' }];
+    d[2] = [{ cat: 'workout', sub: 'strength', tag: 'core' }];
+  }));
+  eq(two.summary, '2 of 3', 'two parts of three');
+  eq(two.met, false, 'and not met');
+  eq(two.marks, 3, 'one dot per part');
+  eq(r3(two.series[6]), 0.667, 'progress is two thirds');
+
+  const lopsided = evaluate(g, wk((d) => {
+    d[0] = [{ cat: 'workout', sub: 'strength', tag: 'upper body' }];
+    d[1] = [{ cat: 'workout', sub: 'strength', tag: 'upper body' }];
+  }));
+  eq(lopsided.summary, '1 of 3',
+    'doing one part twice cannot stand in for a missing one');
+
+  const done = evaluate(g, wk((d) => {
+    d[0] = [{ cat: 'workout', sub: 'strength', tag: 'upper body' }];
+    d[2] = [{ cat: 'workout', sub: 'strength', tag: 'core' }];
+    d[4] = [{ cat: 'workout', sub: 'strength', tag: 'lower body' }];
+  }));
+  eq(done.met, true, 'all three parts is met');
+
+  // Overlapping parts are counted against both, which is what makes
+  // "three runs, at least one easy" work.
+  const overlap = goal({ reqs: [
+    { sub: 'run', metric: 'count', target: 2 },
+    { sub: 'run', label: 'easy', metric: 'count', target: 1 },
+  ] });
+  const both = evaluate(overlap, wk((d) => {
+    d[0] = [{ cat: 'cardio', sub: 'run', tag: 'easy' }];
+    d[3] = [{ cat: 'cardio', sub: 'run', tag: 'tempo' }];
+  }));
+  eq(both.met, true, 'an easy run counts towards both parts');
+
+  // Mixed metrics have no single total worth printing.
+  const mixed = goal({ cat: 'workout', reqs: [
+    { sub: 'strength', metric: 'count', target: 1 },
+    { sub: 'hiit', metric: 'duration', target: 30, unit: 'min' },
+  ] });
+  const half = evaluate(mixed, wk((d) => { d[0] = [{ cat: 'workout', sub: 'strength' }]; }));
+  eq(half.summary, '1 of 2', 'a mixed goal counts its parts instead');
+  eq(half.useDots, false, 'and is never dots');
+}
+
+section('goals — dots only while they can be counted at a glance');
+{
+  const four = goal({ reqs: [{ metric: 'count', target: 4 }] });
+  const five = goal({ reqs: [{ metric: 'count', target: 5 }] });
+  eq(evaluate(four, wk()).useDots, true, 'four marks is a dot grid');
+  eq(evaluate(five, wk()).useDots, false, 'five is an area chart');
+}
+
+section('goals — active ranges');
+{
+  const always = goal({ reqs: [{ metric: 'count', target: 1 }] });
+  const bounded = goal({ from: '2026-07-20', to: '2026-08-17',
+    reqs: [{ metric: 'count', target: 1 }] });
+
+  eq(isActive(always, '2020-01-06'), true, 'an unbounded goal is always active');
+  eq(isActive(bounded, '2026-07-13'), false, 'the week before is outside');
+  eq(isActive(bounded, '2026-07-20'), true, 'the first week is inside');
+  eq(isActive(bounded, '2026-08-17'), true, 'and the last week is inclusive');
+  eq(isActive(bounded, '2026-08-24'), false, 'the week after is outside');
+  eq(activeGoals([always, bounded], '2026-09-07').length, 1, 'only the active ones draw');
+}
+
+section('goals — description for the manage page');
+{
+  eq(describe(goal({ reqs: [{ sub: 'run', metric: 'count', target: 2 }] })),
+    '2 \u00d7 run', 'a simple count');
+  eq(describe(goal({ reqs: [{ sub: 'run', metric: 'distance', target: 20, unit: 'km' }] })),
+    '20km run', 'a distance');
+  eq(describe(goal({ cat: 'workout', reqs: [
+    { sub: 'strength', label: 'core', metric: 'count', target: 1 },
+    { sub: 'strength', label: 'upper body', metric: 'count', target: 1 },
+  ] })), '1 \u00d7 strength \u00b7 core + 1 \u00d7 strength \u00b7 upper body',
+    'parts are joined');
+  eq(describe(sanitiseGoal({ id: 'restgoal', cat: 'rest',
+    reqs: [{ metric: 'count', target: 2 }] })), '2 \u00d7 rest day',
+    'a single sub-type uses its category name');
+}
 
 console.log(fails === 0
   ? `\n${count} assertions passed.`

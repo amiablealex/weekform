@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=swap" rel="stylesheet">
+<!-- app.css for the goal cards below. Loaded before the harness's own rules so
+     those still win where the two overlap. -->
+<link rel="stylesheet" href="./static/css/app.css">
 <style>
   :root { color-scheme: light dark; --line: #00000018; --dim: #6b7280; }
   * { box-sizing: border-box; }
@@ -58,6 +61,19 @@
 <h2>Full width</h2>
 <div id="cases"></div>
 
+<h2>Goal cards — phone width (390px)</h2>
+<p class="note">
+  Goals never enter the exported image; these are DOM, drawn in the strip's own
+  coordinate space so the day marks land under the circles above them. Check
+  three things: that a dot is unmistakably smaller than an activity circle, that
+  a rest goal's filled dots read against the unfilled ones, and that the whole
+  card is worth the vertical space it takes.
+</p>
+<div id="goal-phone" style="width: 390px; max-width: 100%;"></div>
+
+<h2>Goal cards — full width</h2>
+<div id="goal-cases"></div>
+
 <h2>Icon suite — solo scale</h2>
 <div class="icons" id="icons-solo"></div>
 
@@ -69,6 +85,8 @@ import { renderStrip, renderToCanvas, toBlob, loadFonts } from './static/js/rend
 import { CATEGORIES, PALETTE, resolve } from './static/js/tokens.js';
 import { ICONS, iconBadgeSvg } from './static/js/icons.js';
 import { defaultWeekStart, formatRange } from './static/js/week.js';
+import { sanitiseGoal } from './static/js/goals.js';
+import { renderGoals } from './static/js/goalstrip.js';
 
 const week = defaultWeekStart();
 
@@ -230,8 +248,77 @@ function drawIconSheets() {
   }
 }
 
+// --- goal cases ------------------------------------------------------------
+
+function goalWeek(fill) {
+  const days = [[], [], [], [], [], [], []];
+  fill(days);
+  return { title: 'My Week', weekStart: defaultWeekStart(), days };
+}
+
+const RUN = (km) => ({ cat: 'cardio', sub: 'run', amount: km, unit: 'km' });
+const LIFT = (tag) => ({ cat: 'workout', sub: 'strength', tag });
+
+const GOAL_CASES = [
+  [{ id: 'g0000001', name: '2x workout', cat: 'workout',
+     reqs: [{ metric: 'count', target: 2 }] },
+   goalWeek((d) => { d[1] = [LIFT()]; d[3] = [LIFT()]; })],
+
+  [{ id: 'g0000002', name: 'Full body', cat: 'workout', reqs: [
+      { sub: 'strength', label: 'upper body', metric: 'count', target: 1 },
+      { sub: 'strength', label: 'core', metric: 'count', target: 1 },
+      { sub: 'strength', label: 'lower body', metric: 'count', target: 1 }] },
+   goalWeek((d) => { d[0] = [LIFT('upper body')]; d[3] = [LIFT('core')]; })],
+
+  [{ id: 'g0000003', name: '4x cardio', cat: 'cardio',
+     reqs: [{ metric: 'count', target: 4 }] },
+   goalWeek((d) => { d[0] = [RUN(5)]; d[2] = [RUN(5)]; d[4] = [RUN(5)]; })],
+
+  [{ id: 'g0000004', name: 'Run 20km', cat: 'cardio',
+     reqs: [{ sub: 'run', metric: 'distance', target: 20, unit: 'km' }] },
+   goalWeek((d) => { d[2] = [RUN(10)]; })],
+
+  [{ id: 'g0000005', name: 'Run 20km (over)', cat: 'cardio',
+     reqs: [{ sub: 'run', metric: 'distance', target: 20, unit: 'km' }] },
+   goalWeek((d) => { d[1] = [RUN(12)]; d[4] = [RUN(18)]; })],
+
+  [{ id: 'g0000006', name: '5x cardio', cat: 'cardio',
+     reqs: [{ metric: 'count', target: 5 }] },
+   goalWeek((d) => { d[0] = [RUN(5)]; d[2] = [RUN(5)]; d[5] = [RUN(5)]; })],
+
+  [{ id: 'g0000007', name: '2 rest days', cat: 'rest',
+     reqs: [{ metric: 'count', target: 2 }] },
+   goalWeek((d) => { d[5] = [{ cat: 'rest', sub: 'rest' }]; })],
+
+  [{ id: 'g0000008', name: '90min mobility', cat: 'mobility',
+     reqs: [{ metric: 'duration', target: 90, unit: 'min' }] },
+   goalWeek((d) => { d[1] = [{ cat: 'mobility', sub: 'yoga', amount: 45, unit: 'min' }];
+                     d[4] = [{ cat: 'mobility', sub: 'yoga', amount: 45, unit: 'min' }]; })],
+
+  [{ id: 'g0000009', name: 'Nothing yet', cat: 'cardio',
+     reqs: [{ sub: 'run', metric: 'distance', target: 20, unit: 'km' }] },
+   goalWeek(() => {})],
+];
+
+function drawGoalCases() {
+  for (const target of ['goal-phone', 'goal-cases']) {
+    const host = document.getElementById(target);
+    host.innerHTML = '';
+    for (const [raw, week] of GOAL_CASES) {
+      const goal = sanitiseGoal(raw);
+      if (!goal) { host.appendChild(Object.assign(document.createElement('p'),
+        { textContent: `case ${raw.id} did not validate` })); continue; }
+      const strip = document.createElement('section');
+      strip.className = 'goals';
+      host.appendChild(strip);
+      renderGoals(strip, [goal], week);
+    }
+  }
+}
+
 const status = document.getElementById('status');
 drawIconSheets();
+drawGoalCases();
 
 try {
   await loadFonts();

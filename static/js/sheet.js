@@ -433,3 +433,9 @@ export function openTitle(state, onChange) {
     setTimeout(() => { field.focus(); field.select(); }, 60);
   });
 }
+
+// --- shell, shared with the goal builder -----------------------------------
+// Exported rather than copied. A second sheet implementation is how two sheets
+// end up quietly looking different from each other.
+
+export { open as openSheet, setTitle as setSheetTitle, chipRow, badge, el };

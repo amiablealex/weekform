@@ -3,6 +3,7 @@
 {% set back_label = 'This week' %}
 
 {% block headright %}
+  <a class="page-link" href="{{ url_for('account.goals') }}">Goals</a>
   <a class="page-link" href="{{ url_for('account.settings') }}">Settings</a>
 {% endblock %}
 
