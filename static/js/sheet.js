@@ -26,6 +26,12 @@ function el(tag, className, text) {
 let root = null;
 let lastFocus = null;
 
+// close() cannot hide the sheet straight away — it has to let the slide-down
+// finish first. That pending timer is the reason a sheet that opens another
+// sheet needs care: without cancelling it, the second sheet appears and is then
+// hidden 180ms later by the first one's teardown.
+let hideTimer = null;
+
 function ensureRoot() {
   if (root) return root;
   root = el('div', 'sheet-root');
@@ -65,7 +71,13 @@ function setCloseLabel(text) {
 
 function open(title, build) {
   const node = ensureRoot();
-  lastFocus = document.activeElement;
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+  // Only when arriving from the page, so that closing a chain of sheets returns
+  // focus to whatever started it rather than to a row that no longer exists.
+  if (node.hidden) lastFocus = document.activeElement;
   node.querySelector('.sheet-title').textContent = title;
   setCloseLabel('Done');
   const body = node.querySelector('.sheet-body');
@@ -84,9 +96,13 @@ export function close() {
   if (!root || root.hidden) return;
   root.classList.remove('is-open');
   document.body.classList.remove('sheet-open');
-  const finish = () => { root.hidden = true; };
+  const finish = () => {
+    root.hidden = true;
+    hideTimer = null;
+  };
+  clearTimeout(hideTimer);
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) finish();
-  else setTimeout(finish, 180);
+  else hideTimer = setTimeout(finish, 180);
   if (lastFocus && lastFocus.focus) lastFocus.focus();
 }
 

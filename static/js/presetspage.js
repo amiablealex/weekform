@@ -16,7 +16,7 @@ import { iconBadgeSvg } from './icons.js';
 import { describePreset, candidateWeeks, presetFromWeek } from './presets.js';
 import { fetchPresets, savePreset, removePreset } from './presetsync.js';
 import { openNameSheet } from './presetsheet.js';
-import { openSheet, setCloseLabel, el, close } from './sheet.js';
+import { openSheet, setCloseLabel, el } from './sheet.js';
 import { loadWeek, storedWeekStarts } from './state.js';
 import { fetchAll, isSignedIn } from './sync.js';
 import { formatRangeShort, relativeName } from './week.js';
@@ -92,10 +92,9 @@ function chooseWeek() {
       row.appendChild(el('span', 'preset-count',
         `${week.count} activit${week.count === 1 ? 'y' : 'ies'}`));
 
-      row.addEventListener('click', () => {
-        close();
-        nameAndSave(week);
-      });
+      // Straight to the next step rather than close-then-open: the sheet stays
+      // put and swaps its contents, so there is no slide-down and back up.
+      row.addEventListener('click', () => nameAndSave(week));
       rows.appendChild(row);
     });
     body.appendChild(rows);

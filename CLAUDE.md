@@ -179,6 +179,15 @@ Each of these cost a deploy or a release. Do not reintroduce them.
   bottom commits. The header button is now labelled by context — "Done" where
   everything on screen is already applied, "Cancel" where it is not. Any new
   sheet holding a draft must call `setCloseLabel('Cancel')`.
+- **`close()` on a sheet that is about to open another one.** `close()` cannot
+  hide the sheet immediately — it has to let the slide-down finish, so it
+  schedules the teardown 180ms out. Calling it and then opening a second sheet
+  meant the second appeared and was then hidden by the first one's timer. Two
+  defences now: `open()` cancels any pending teardown, and a sheet that leads to
+  another simply opens it without closing, so the sheet stays put and swaps its
+  contents. That is what the goal builder's Back button has always done, which
+  is why it never had the bug. Neither the DOM nor the timers exist in the test
+  runner, so this one is only ever caught by tapping through it.
 - **Signing in rotates the CSRF token.** `log_in()` clears the session to get a
   fresh id, which takes the token with it. Templates always emit the current
   one, so browsers never notice — but a test that reuses a token from before
