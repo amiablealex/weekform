@@ -74,6 +74,16 @@
 <h2>Goal cards — full width</h2>
 <div id="goal-cases"></div>
 
+<h2>Goal cards — where today falls</h2>
+<p class="note">
+  On the current week only, everything after today is drawn faded and a dashed
+  hairline marks the column. The same card is shown below at each position, plus
+  the settled state a past or future week gets. Judge two things: whether the
+  faded region reads as "not yet" rather than as a rendering fault, and whether
+  <code>GOAL.futureAlpha</code> wants moving.
+</p>
+<div id="goal-today" style="width: 390px; max-width: 100%;"></div>
+
 <h2>Icon suite — solo scale</h2>
 <div class="icons" id="icons-solo"></div>
 
@@ -86,7 +96,7 @@ import { CATEGORIES, PALETTE, resolve } from './static/js/tokens.js';
 import { ICONS, iconBadgeSvg } from './static/js/icons.js';
 import { defaultWeekStart, formatRange } from './static/js/week.js';
 import { sanitiseGoal } from './static/js/goals.js';
-import { renderGoals } from './static/js/goalstrip.js';
+import { renderGoals, goalCard } from './static/js/goalstrip.js';
 
 const week = defaultWeekStart();
 
@@ -316,9 +326,39 @@ function drawGoalCases() {
   }
 }
 
+function drawTodayCases() {
+  const host = document.getElementById('goal-today');
+  host.innerHTML = '';
+
+  const chart = sanitiseGoal({ id: 'g0000010', name: 'Run 20km', cat: 'cardio',
+    reqs: [{ sub: 'run', metric: 'distance', target: 20, unit: 'km' }] });
+  const grid = sanitiseGoal({ id: 'g0000011', name: '3x workout', cat: 'workout',
+    reqs: [{ metric: 'count', target: 3 }] });
+
+  const runs = goalWeek((d) => { d[0] = [RUN(6)]; d[2] = [RUN(5)]; d[4] = [RUN(6)]; });
+  const lifts = goalWeek((d) => { d[1] = [LIFT()]; d[3] = [LIFT()]; d[5] = [LIFT()]; });
+
+  const positions = [['not this week — nothing faded', null], ['Monday', 0],
+                     ['Wednesday', 2], ['Friday', 4], ['Sunday', 6]];
+
+  for (const [label, today] of positions) {
+    const caption = document.createElement('p');
+    caption.className = 'note';
+    caption.textContent = label;
+    host.appendChild(caption);
+    for (const [goal, week] of [[chart, runs], [grid, lifts]]) {
+      const strip = document.createElement('section');
+      strip.className = 'goals';
+      strip.appendChild(goalCard(goal, week, today));
+      host.appendChild(strip);
+    }
+  }
+}
+
 const status = document.getElementById('status');
 drawIconSheets();
 drawGoalCases();
+drawTodayCases();
 
 try {
   await loadFonts();

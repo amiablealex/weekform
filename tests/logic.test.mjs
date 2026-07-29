@@ -796,6 +796,28 @@ section('presets — which weeks are worth offering');
   eq(p.days[1][0].cat, 'workout', 'carrying its activities');
 }
 
+
+// The goal cards fade everything after today, and use week.js's todayIndex to
+// decide where that is. These pin down the cases that drive the fade: the two
+// ends of the week, and the -1 that means "not this week, draw it settled".
+section('today, as the goal cards use it');
+{
+  const on = (y, m, d) => new Date(y, m, d);      // 20 July 2026 is a Monday
+
+  const week = [];
+  for (let d = 20; d <= 26; d++) week.push(todayIndex('2026-07-20', on(2026, 6, d)));
+  eq(week.join(','), '0,1,2,3,4,5,6', 'a whole week maps to the seven columns in order');
+  eq(todayIndex('2026-07-20', on(2026, 6, 26)), 6,
+    'Sunday is the last column, not the first — JS weeks start on Sunday, ours do not');
+
+  eq(todayIndex('2026-07-13', on(2026, 6, 22)) < 0, true, 'a past week has no today');
+  eq(todayIndex('2026-07-27', on(2026, 6, 22)) < 0, true, 'and neither has a future one');
+  eq(todayIndex('2026-07-20', on(2026, 6, 19)) < 0, true,
+    'the Sunday before belongs to the previous week');
+  eq(todayIndex('2026-07-20', on(2026, 6, 27)) < 0, true,
+    'and the Monday after to the next one');
+}
+
 console.log(fails === 0
   ? `\n${count} assertions passed.`
   : `\n${fails} of ${count} assertions FAILED.`);

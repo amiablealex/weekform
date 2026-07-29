@@ -124,6 +124,13 @@ export const GOAL = {
   dotPitch:  34,   // mistaken for an activity
   lineW:      5,
   areaAlpha: 0.16,
+
+  // Everything to the right of today is drawn at this opacity, on the current
+  // week only. A planned Thursday is not a missed Thursday, and a card reading
+  // "2 of 3" on a Wednesday means something quite different from the same card
+  // on a Sunday. This is the number to tune if the fade is too strong or too
+  // subtle — nothing else needs to change.
+  futureAlpha: 0.45,
 };
 
 // Seven evenly spaced circle centres across the usable width.

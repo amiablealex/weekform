@@ -77,7 +77,16 @@ detail to slip into an unrelated change.
    strip, the fragment and the sync endpoint already use, validated through
    `sanitise()` in `state.js`. It carries no title and no date. If a preset ever
    needs its own validation, something has gone wrong.
-14. **Every account feature is named in the guide line, and managed from
+14. **Today is marked on goal cards and nowhere else.** On the current week,
+   everything after today draws at `GOAL.futureAlpha` with a dashed hairline at
+   the column. Past and future weeks get none of it — `todayIndex` returns -1
+   and the card draws settled. This must never reach the strip: the canvas *is*
+   the exported PNG, so a faded disc would mean the same week exported
+   differently depending on which day share was pressed, and the recipient would
+   have no way to read it. Cards are where you are in the week; the image is the
+   week. Marking today is factual; anything derived from it — days remaining,
+   behind schedule — is the encouragement machinery on the refused list.
+15. **Every account feature is named in the guide line, and managed from
    Settings.** The quiet line under the strip is the front door — it is how
    anybody discovers history, goals and presets, and the only place on the front
    page that advertises anything. Settings is the hub behind it: goals and
@@ -112,7 +121,7 @@ detail to slip into an unrelated change.
 ## Verify before delivering anything
 
 ```bash
-node tests/logic.test.mjs        # 273 assertions, pure logic, no dependencies
+node tests/logic.test.mjs        # 279 assertions, pure logic, no dependencies
 python3 tests/server.test.py     # 150 assertions against a throwaway SQLite file
 python3 -m http.server 8000      # then /harness.html for the strip and goal cards
 flask --app weekform run --debug # needs SECRET_KEY and ADMIN_PASSWORD set
