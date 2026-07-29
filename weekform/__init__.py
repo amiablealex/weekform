@@ -57,6 +57,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     from .blueprints.account import bp as account_bp
     from .blueprints.sync import bp as sync_bp
     from .blueprints.goals import bp as goals_bp
+    from .blueprints.presets import bp as presets_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
@@ -65,6 +66,7 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     app.register_blueprint(account_bp)
     app.register_blueprint(sync_bp)
     app.register_blueprint(goals_bp)
+    app.register_blueprint(presets_bp)
 
     # Templates need both of these on nearly every page.
     app.jinja_env.globals["csrf_token"] = csrf_token

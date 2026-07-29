@@ -219,8 +219,19 @@ export const LIMITS = {
   title: 22,
   label: 12,
   goalName: 28,
-  goals: 6,          // a page of goals is a dashboard, which this is not
+  presetName: 22,
+
+  // Two ceilings, for two different reasons. `activeGoals` is about the page:
+  // more than six cards under a strip is a dashboard, which this is not. It
+  // counts goals live in the *same week*, so a year of finished goals costs
+  // nothing. `storedGoals` is about storage and nothing else, and is the only
+  // one the server can enforce — working out what is active means reading the
+  // dates, and the server does not read payloads.
+  activeGoals: 6,
+  storedGoals: 40,
+
   reqs: 4,           // parts within one goal
+  presets: 3,
 };
 
 // --- lookups --------------------------------------------------------------

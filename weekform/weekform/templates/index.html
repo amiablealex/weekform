@@ -73,9 +73,10 @@
   <p class="guide">Tap a day to add what you did, then share the image.</p>
   {% if current_user() %}
     <p class="guide guide-quiet">
+      Weeks are saved to your account.
       <a href="{{ url_for('account.history') }}">See your history</a>,
       <a href="{{ url_for('account.goals') }}">set goals</a>, or
-      <a href="{{ url_for('account.presets') }}">manage presets</a>.
+      <a href="{{ url_for('account.presets') }}">keep preset weeks</a>.
     </p>
   {% else %}
     <p class="guide guide-quiet">

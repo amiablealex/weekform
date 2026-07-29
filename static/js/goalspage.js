@@ -8,7 +8,7 @@
 
 import { PALETTE, LIMITS, category } from './tokens.js';
 import { iconBadgeSvg } from './icons.js';
-import { describe } from './goals.js';
+import { describe, groupGoals, capacityProblem } from './goals.js';
 import { fetchGoals, saveGoal, removeGoal } from './goalsync.js';
 import { openGoalSheet } from './goalsheet.js';
 import { formatRangeShort } from './week.js';
@@ -55,9 +55,8 @@ function row(goal) {
   open.appendChild(text);
 
   open.addEventListener('click', () => {
-    openGoalSheet(goal, async (updated) => {
-      await store(updated);
-    });
+    openGoalSheet(goal, async (updated) => { await store(updated); },
+      (candidate) => capacityProblem(goals, candidate));
   });
   item.appendChild(open);
 
@@ -105,25 +104,46 @@ async function store(goal) {
   }
 }
 
+/**
+ * Grouped, because a goal that finished in March is worth keeping and worth
+ * getting out of the way. The limit is on how many are live in one week, so a
+ * long list of finished goals costs nothing on the front page and there is no
+ * reason to make anybody delete one to make room.
+ */
 function paint() {
   list.innerHTML = '';
+
   if (!goals.length) {
     list.appendChild(el('p', 'goal-empty', 'No goals yet.'));
   } else {
-    goals.forEach((goal) => list.appendChild(row(goal)));
+    const groups = groupGoals(goals);
+    const sections = [
+      ['Active', groups.active],
+      ['Upcoming', groups.upcoming],
+      ['Finished', groups.finished],
+    ];
+    for (const [heading, members] of sections) {
+      if (!members.length) continue;
+      const block = el('section', 'goal-group');
+      const head = el('h2', 'goal-group-head', heading);
+      head.appendChild(el('span', 'goal-group-n', String(members.length)));
+      block.appendChild(head);
+      members.forEach((goal) => block.appendChild(row(goal)));
+      list.appendChild(block);
+    }
   }
 
-  const full = goals.length >= LIMITS.goals;
+  const full = goals.length >= LIMITS.storedGoals;
   addBtn.hidden = full;
   note.textContent = full
-    ? `${LIMITS.goals} goals is the limit.`
-    : 'Goals appear under your week when it falls inside their dates.';
+    ? `${LIMITS.storedGoals} goals is the limit.`
+    : `Goals appear under your week when it falls inside their dates. ` +
+      `Up to ${LIMITS.activeGoals} can be active in the same week.`;
 }
 
 addBtn.addEventListener('click', () => {
-  openGoalSheet(null, async (goal) => {
-    await store(goal);
-  });
+  openGoalSheet(null, async (goal) => { await store(goal); },
+    (candidate) => capacityProblem(goals, candidate));
 });
 
 (async () => {

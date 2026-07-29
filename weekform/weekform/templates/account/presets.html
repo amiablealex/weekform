@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Presets — weekform{% endblock %}
+{% set back_href = url_for('account.settings') %}
+{% set back_label = 'Settings' %}
+
+{% block content %}
+
+<h1>Preset weeks</h1>
+<p class="lede">A week you have already built, kept so you do not have to build
+  it again. Applying one fills an empty week with its activities. The title is
+  not carried over.</p>
+
+<div id="preset-list" class="preset-list"></div>
+
+<button type="button" class="btn" id="preset-add">Save a week as a preset</button>
+
+<p class="cal-note" id="preset-note"></p>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/presetspage.js') }}"></script>
+{% endblock %}

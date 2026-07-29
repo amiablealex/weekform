@@ -77,15 +77,11 @@ detail to slip into an unrelated change.
    strip, the fragment and the sync endpoint already use, validated through
    `sanitise()` in `state.js`. It carries no title and no date. If a preset ever
    needs its own validation, something has gone wrong.
-14. **Every account feature is named in the guide line, and managed from
-   Settings.** The quiet line under the strip is the front door — it is how
-   anybody discovers history, goals and presets, and the only place on the front
-   page that advertises anything. Settings is the hub behind it: goals and
-   presets are siblings and sit there as sections. The calendar's header carries
-   one link out to Settings and does not grow a list of features. A new account
-   feature gets a mention in the guide line and a section in Settings; if it
-   seems to need more than that it is asking for a prompt, and prompts are
-   onboarding.
+14. **Every account feature is named in the guide line.** The quiet line under
+   the strip is how anybody discovers history, goals and presets, and it is the
+   only place on the front page that advertises anything. A feature that is not
+   named there is undiscoverable; a feature that needs more than a mention there
+   is asking for a prompt, and prompts are onboarding.
 
 ## Where to change what
 
@@ -113,7 +109,7 @@ detail to slip into an unrelated change.
 
 ```bash
 node tests/logic.test.mjs        # 273 assertions, pure logic, no dependencies
-python3 tests/server.test.py     # 150 assertions against a throwaway SQLite file
+python3 tests/server.test.py     # 145 assertions against a throwaway SQLite file
 python3 -m http.server 8000      # then /harness.html for the strip and goal cards
 flask --app weekform run --debug # needs SECRET_KEY and ADMIN_PASSWORD set
 ```

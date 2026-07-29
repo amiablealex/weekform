@@ -25,6 +25,7 @@ const copyBtn = $('copy');
 const clearBtn = $('clear');
 const toastNode = $('toast');
 const goalHost = $('goals');       // absent unless signed in
+const presetLine = $('preset-line');
 
 let state = emptyState();
 
@@ -158,6 +159,60 @@ async function initGoals() {
   }
 }
 
+// --- presets ---------------------------------------------------------------
+// A preset is a week somebody already built. Applying one is only offered on a
+// week with nothing in it, which is why there is no "replace what is here?"
+// question to answer. Saving one lives in the week sheet, so the front page
+// carries exactly one conditional line and no permanent furniture.
+
+let presets = [];
+let presetLib = null;              // { sheets, store, model } once loaded
+
+function refreshPresetLine() {
+  if (!presetLine) return;
+  presetLine.hidden = !(presetLib && presets.length > 0 && isEmpty(state));
+}
+
+function onApplyPreset() {
+  presetLib.sheets.openPresetPicker(presets, (preset) => {
+    state.days = presetLib.model.daysOf(preset);
+    applyChange();
+    toast('Preset applied');
+  });
+}
+
+function onSavePreset() {
+  const suggestion = state.title === BRAND.defaultTitle ? '' : state.title;
+  presetLib.sheets.openPresetSave(presets.length, suggestion, async (name) => {
+    const preset = presetLib.model.presetFromWeek(state, name);
+    if (!preset) return;
+    try {
+      await presetLib.store.savePreset(preset);
+      presets.push(preset);
+      refreshPresetLine();
+      toast('Preset saved');
+    } catch {
+      toast('Could not save the preset');
+    }
+  });
+}
+
+async function initPresets() {
+  if (!isSignedIn() || !presetLine) return;
+  try {
+    const [sheets, store, model] = await Promise.all([
+      import('./presetsheet.js'),
+      import('./presetsync.js'),
+      import('./presets.js'),
+    ]);
+    presets = await store.fetchPresets();
+    presetLib = { sheets, store, model };
+    refreshPresetLine();
+  } catch (err) {
+    console.warn('weekform: could not load presets', err);
+  }
+}
+
 // --- rendering -------------------------------------------------------------
 
 function scheduleExport() {
@@ -185,6 +240,7 @@ function paint() {
     `Week of ${formatRange(state.weekStart)}. Change week`);
   $('week-rel').textContent = name || '';
   refreshOverlay();
+  refreshPresetLine();
   paintGoals();
   shareBtn.disabled = false;
   scheduleExport();
@@ -356,11 +412,26 @@ async function boot() {
       else if (pulled) toast('History loaded');
     });
     initGoals();
+    initPresets();
+  }
+
+  if (presetLine) {
+    const start = document.createElement('button');
+    start.type = 'button';
+    start.className = 'preset-start';
+    start.textContent = 'Start from a preset';
+    start.addEventListener('click', () => { if (presetLib) onApplyPreset(); });
+    presetLine.appendChild(start);
   }
 
   $('week-prev').addEventListener('click', () => step(-1));
   $('week-next').addEventListener('click', () => step(1));
-  weekBtn.addEventListener('click', () => openWeek(state, goToWeek, hasStoredWeek));
+  weekBtn.addEventListener('click', () => openWeek(
+    state, goToWeek, hasStoredWeek,
+    // Offered only when there is something worth keeping. The sheet itself
+    // explains if all three slots are already taken.
+    presetLib && !isEmpty(state) ? onSavePreset : null,
+  ));
   shareBtn.addEventListener('click', onShare);
   copyBtn.addEventListener('click', onCopy);
   clearBtn.addEventListener('click', onClear);

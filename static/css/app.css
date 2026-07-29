@@ -769,3 +769,104 @@ body.sheet-open { overflow: hidden; }
 }
 
 .goal-range-row .text-field { margin-top: 0; }
+
+/* --- presets ------------------------------------------------------------ */
+/* One conditional line under the strip, shown only on an empty week when there
+   is a preset to apply. Saving lives in the week sheet, so nothing permanent is
+   added to the front page. */
+
+.preset-line { margin: 12px 2px 0; }
+.preset-line[hidden] { display: none; }
+
+.preset-start {
+  min-height: var(--tap);
+  padding: 0 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-soft);
+  font: 400 14px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.preset-start:active { background: var(--surface); }
+
+/* A full-width row inside a sheet, above whatever the sheet is really for. */
+.sheet-wide {
+  width: 100%;
+  min-height: var(--tap);
+  margin-bottom: 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-soft);
+  font: 400 14px "Space Grotesk", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.preset-row {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.preset-row:active { background: var(--bg); }
+
+.preset-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.preset-name {
+  font-size: 15px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-count {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* Seven columns, aligned the way the strip is, so a preset is recognisable
+   without applying it. Circles here are activities, as everywhere else. */
+.preset-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.preset-day {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.preset-mark {
+  width: 100%;
+  max-width: 26px;
+  aspect-ratio: 1;
+  line-height: 0;
+}
+
+.preset-mark svg { display: block; width: 100%; height: auto; }
+
+.preset-dow {
+  font-size: 10px;
+  letter-spacing: .6px;
+  color: var(--ink-faint);
+}

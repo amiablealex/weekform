@@ -318,3 +318,67 @@
   color: var(--ink-faint);
   font-size: 14px;
 }
+
+/* --- goal groups -------------------------------------------------------- */
+/* Active, upcoming and finished. The cap is on how many are live in one week,
+   so a long tail of finished goals is expected and just needs to be tidy. */
+
+.goal-group { margin-bottom: 20px; }
+
+.goal-group-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: var(--ink-faint);
+}
+
+.goal-group-n {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--line);
+  color: var(--ink-soft);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+/* --- presets page ------------------------------------------------------- */
+
+.preset-list { display: grid; gap: 8px; margin: 18px 0; }
+
+.preset-item {
+  padding: 10px 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.preset-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.preset-rename {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 500 15px "Space Grotesk", system-ui, sans-serif;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.preset-item .preset-count { display: block; margin: 0; }

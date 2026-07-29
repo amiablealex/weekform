@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from flask import (Blueprint, Response, flash, redirect, render_template,
                    request, url_for)
 
-from ..models import AccountDeletion, Goal, User, Week, db
+from ..models import AccountDeletion, Goal, Preset, User, Week, db
 from ..security import (csrf_ok, current_user, log_out, login_required,
                         verify_password)
 
@@ -34,6 +34,18 @@ def goals():
     return render_template("account/goals.html", user=current_user())
 
 
+@bp.get("/presets")
+@login_required
+def presets():
+    """Rename and delete preset weeks.
+
+    Presets are created on the front page, where there is a week to make one
+    from. Building one here would mean a second day picker on a page with no
+    strip to preview it against.
+    """
+    return render_template("account/presets.html", user=current_user())
+
+
 @bp.get("/settings")
 @login_required
 def settings():
@@ -44,8 +56,11 @@ def settings():
     goals = db.session.scalar(
         db.select(db.func.count(Goal.id)).where(Goal.user_id == user.id)
     ) or 0
+    presets = db.session.scalar(
+        db.select(db.func.count(Preset.id)).where(Preset.user_id == user.id)
+    ) or 0
     return render_template("account/settings.html", user=user, saved=saved,
-                           goals=goals)
+                           goals=goals, presets=presets)
 
 
 @bp.get("/export")
@@ -58,6 +73,9 @@ def export():
     ).all()
     goals = db.session.scalars(
         db.select(Goal).where(Goal.user_id == user.id).order_by(Goal.created_at)
+    ).all()
+    presets = db.session.scalars(
+        db.select(Preset).where(Preset.user_id == user.id).order_by(Preset.created_at)
     ).all()
 
     document = {
@@ -81,6 +99,14 @@ def export():
                 **json.loads(goal.payload),
             }
             for goal in goals
+        ],
+        "presets": [
+            {
+                "created": preset.created_at.isoformat(),
+                "updated": preset.updated_at.isoformat(),
+                **json.loads(preset.payload),
+            }
+            for preset in presets
         ],
         "note": "This is everything weekform holds about this account.",
     }

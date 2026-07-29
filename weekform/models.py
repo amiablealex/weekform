@@ -4,8 +4,8 @@ Signed out, nothing is stored about anybody: `share_events` counts strips and
 holds no addresses, no user agents and nothing about what a strip contained.
 
 Signing in changes that, and only by what it has to. An account is an email
-address, a password hash, the weeks that person chose to save, and any goals
-they set. A week is
+address, a password hash, the weeks that person chose to save, any goals they
+set, and any preset weeks they keep. A week is
 stored as the same opaque blob the URL fragment already carries — the server
 never parses it, never looks inside it, and does not know what a doughnut is.
 That is partly principle and partly design: activity types stay a client-side
@@ -63,6 +63,8 @@ class User(db.Model):
                             cascade="all, delete-orphan")
     goals = db.relationship("Goal", back_populates="user",
                             cascade="all, delete-orphan")
+    presets = db.relationship("Preset", back_populates="user",
+                              cascade="all, delete-orphan")
     resets = db.relationship("PasswordReset", back_populates="user",
                              cascade="all, delete-orphan")
 
@@ -120,6 +122,34 @@ class Goal(db.Model):
                            default=_utcnow, onupdate=_utcnow)
 
     user = db.relationship("User", back_populates="goals")
+
+
+class Preset(db.Model):
+    """One preset week. `payload` is opaque JSON, never inspected by the server.
+
+    A preset holds the same `days` structure a week does, so this table is the
+    weeks table with a name instead of a date. It is kept separate rather than
+    flagged on `weeks`, because a preset has no place in the calendar and a
+    saved week has no name.
+    """
+
+    __tablename__ = "presets"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "preset_id", name="uq_preset_per_user"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer,
+                        db.ForeignKey("users.id", ondelete="CASCADE"),
+                        nullable=False, index=True)
+    preset_id = db.Column(db.String(16), nullable=False)
+    payload = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False,
+                           default=_utcnow, onupdate=_utcnow)
+
+    user = db.relationship("User", back_populates="presets")
 
 
 class PasswordReset(db.Model):
@@ -235,6 +265,10 @@ def total_weeks() -> int:
 
 def total_goals() -> int:
     return db.session.scalar(db.select(func.count(Goal.id))) or 0
+
+
+def total_presets() -> int:
+    return db.session.scalar(db.select(func.count(Preset.id))) or 0
 
 
 def total_deletions() -> int:

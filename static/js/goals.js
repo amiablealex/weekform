@@ -24,6 +24,7 @@
 
 import { LIMITS, UNITS, GOAL, PALETTE,
          category, subType, labelFor, goalCategories } from './tokens.js';
+import { addWeeks, mondayOf, toISO } from './week.js';
 
 export const METRICS = ['count', 'distance', 'duration'];
 
@@ -161,7 +162,85 @@ export function sanitiseGoals(list) {
       seen.add(g.id);
       return true;
     })
-    .slice(0, LIMITS.goals);
+    .slice(0, LIMITS.storedGoals);
+}
+
+// --- how many are live at once ---------------------------------------------
+// The limit that matters is how many cards can land under one strip, not how
+// many goals an account holds. Somebody who has kept a year of finished goals
+// has a long list on the goals page and one card on the front page, and only
+// the second of those is a problem worth capping.
+
+// Open-ended goals need a bound to sweep between. ISO dates sort as strings, so
+// these sit outside any real date without needing a special case.
+const BEFORE_ALL = '0000-00-00';
+const AFTER_ALL = '9999-99-99';
+
+/**
+ * The largest number of these goals ever active in the same week.
+ *
+ * A sweep over the range boundaries rather than a pairwise overlap count:
+ * a chain of goals can each overlap its neighbour without any single week
+ * holding more than two of them.
+ */
+export function maxConcurrent(goals) {
+  const events = [];
+  for (const goal of goals) {
+    events.push([goal.from || BEFORE_ALL, 1]);
+    // A goal ending in week W is active through W, so it clears the week after.
+    events.push([goal.to ? addWeeks(goal.to, 1) : AFTER_ALL, -1]);
+  }
+  // Ends before starts at the same boundary: a goal finishing the week before
+  // another begins does not overlap it.
+  events.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] - b[1]));
+
+  let live = 0;
+  let most = 0;
+  for (const [, delta] of events) {
+    live += delta;
+    if (live > most) most = live;
+  }
+  return most;
+}
+
+/**
+ * Why this goal cannot be saved alongside the others, or null if it can.
+ * Editing an existing goal replaces it rather than adding to it.
+ */
+export function capacityProblem(goals, candidate) {
+  const others = goals.filter((g) => g.id !== candidate.id);
+  if (others.length + 1 > LIMITS.storedGoals) {
+    return `${LIMITS.storedGoals} goals is the limit.`;
+  }
+  if (maxConcurrent([...others, candidate]) > LIMITS.activeGoals) {
+    return `That would put more than ${LIMITS.activeGoals} goals in one week. ` +
+           'Change its dates, or finish another.';
+  }
+  return null;
+}
+
+/**
+ * Active, upcoming and finished, relative to the week we are in now.
+ *
+ * Deliberately measured against today rather than the week on screen: the goals
+ * page has no week on screen, and "finished" should not change meaning because
+ * somebody scrolled back to March.
+ */
+export function groupGoals(goals, today = new Date()) {
+  const now = toISO(mondayOf(today));
+  const active = [];
+  const upcoming = [];
+  const finished = [];
+
+  for (const goal of goals) {
+    if (goal.to && goal.to < now) finished.push(goal);
+    else if (goal.from && goal.from > now) upcoming.push(goal);
+    else active.push(goal);
+  }
+
+  upcoming.sort((a, b) => (a.from < b.from ? -1 : 1));
+  finished.sort((a, b) => (a.to > b.to ? -1 : 1));   // most recent first
+  return { active, upcoming, finished };
 }
 
 // --- matching --------------------------------------------------------------

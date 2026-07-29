@@ -11,7 +11,8 @@
 // ---------------------------------------------------------------------------
 
 import { PALETTE, LIMITS, UNITS, category, subType } from './tokens.js';
-import { openSheet, setSheetTitle, chipRow, badge, el, close } from './sheet.js';
+import { openSheet, setSheetTitle, setCloseLabel, chipRow, badge, el,
+         close } from './sheet.js';
 import { goalCategories, newGoalId, describe, sanitiseGoal } from './goals.js';
 import { mondayOf, toISO, parseISO, formatRangeShort } from './week.js';
 
@@ -108,13 +109,15 @@ function toGoal(draft) {
  * the form — the category is what fixes a goal's colour, so changing it means
  * building a different goal.
  */
-export function openGoalSheet(existing, onSave) {
+export function openGoalSheet(existing, onSave, checkFit = () => null) {
   if (existing) {
     const cat = category(existing.cat);
-    openSheet(cat.label, (body) => form(body, draftFrom(existing, cat), cat, onSave, true));
+    openSheet(cat.label, (body) =>
+      form(body, draftFrom(existing, cat), cat, onSave, true, checkFit));
     return;
   }
   openSheet('New goal', (body) => {
+    setCloseLabel('Cancel');
     body.appendChild(el('p', 'sheet-note', 'What kind of activity is this goal about?'));
     const grid = el('div', 'cat-grid');
     goalCategories().forEach((cat) => {
@@ -124,7 +127,7 @@ export function openGoalSheet(existing, onSave) {
       tile.appendChild(el('span', 'cat-name', cat.label));
       tile.addEventListener('click', () => {
         body.innerHTML = '';
-        form(body, draftFrom(null, cat), cat, onSave, false);
+        form(body, draftFrom(null, cat), cat, onSave, false, checkFit);
       });
       grid.appendChild(tile);
     });
@@ -134,9 +137,10 @@ export function openGoalSheet(existing, onSave) {
 
 // --- the form --------------------------------------------------------------
 
-function form(body, draft, cat, onSave, editing) {
+function form(body, draft, cat, onSave, editing, checkFit) {
   const paint = () => {
     setSheetTitle(editing ? 'Edit goal' : cat.label);
+    setCloseLabel('Cancel');
     body.innerHTML = '';
 
     if (!editing) {
@@ -144,7 +148,7 @@ function form(body, draft, cat, onSave, editing) {
       back.type = 'button';
       back.addEventListener('click', () => {
         body.innerHTML = '';
-        openGoalSheet(null, onSave);
+        openGoalSheet(null, onSave, checkFit);
       });
       body.appendChild(back);
     }
@@ -213,8 +217,16 @@ function form(body, draft, cat, onSave, editing) {
 
     function refreshSave() {
       const clean = sanitiseGoal(toGoal(draft));
-      save.disabled = !clean;
-      preview.textContent = clean ? describe(clean) : 'Set an amount for every part.';
+      if (!clean) {
+        save.disabled = true;
+        preview.textContent = 'Set an amount for every part.';
+        return;
+      }
+      // The active limit depends on the other goals and on these dates, so it
+      // is checked here rather than only being discovered on save.
+      const problem = checkFit(clean);
+      save.disabled = Boolean(problem);
+      preview.textContent = problem || describe(clean);
     }
     refreshSave();
   };

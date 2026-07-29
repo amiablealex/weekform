@@ -1,11 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Goals — weekform{% endblock %}
-{% set back_href = url_for('account.history') %}
-{% set back_label = 'History' %}
-
-{% block headright %}
-  <a class="page-link" href="{{ url_for('account.settings') }}">Settings</a>
-{% endblock %}
+{% set back_href = url_for('account.settings') %}
+{% set back_label = 'Settings' %}
 
 {% block content %}
 

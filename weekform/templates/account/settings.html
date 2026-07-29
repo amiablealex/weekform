@@ -11,8 +11,17 @@
   <dt>Signed in as</dt><dd>{{ user.email }}</dd>
   <dt>Weeks saved</dt><dd>{{ saved }}</dd>
   <dt>Goals set</dt><dd>{{ goals }}</dd>
+  <dt>Presets kept</dt><dd>{{ presets }}</dd>
   <dt>Account created</dt><dd>{{ user.created_at.strftime('%d %B %Y') }}</dd>
 </dl>
+
+<h2>Goals</h2>
+<p class="lede">Weekly rules, drawn under your week as you fill it in.</p>
+<p><a class="btn" href="{{ url_for('account.goals') }}">Manage goals</a></p>
+
+<h2>Preset weeks</h2>
+<p class="lede">Weeks you have saved to start from again.</p>
+<p><a class="btn" href="{{ url_for('account.presets') }}">Manage presets</a></p>
 
 <h2>Your data</h2>
 <p class="lede">Everything held about this account, in one file.</p>
@@ -24,8 +33,8 @@
 </form>
 
 <h2 class="danger-head">Delete account</h2>
-<p class="lede">Removes the account and every saved week immediately. It cannot
-  be undone, and nothing is kept in a backup for later.</p>
+<p class="lede">Removes the account and every saved week, goal and preset
+  immediately. It cannot be undone, and nothing is kept in a backup for later.</p>
 
 <form method="post" action="{{ url_for('account.delete') }}" class="stack"
       id="delete-form">

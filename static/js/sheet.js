@@ -51,10 +51,23 @@ function ensureRoot() {
   return root;
 }
 
+/**
+ * The header button says what it does.
+ *
+ * "Done" is honest where everything on screen is already applied — the day list
+ * saves each change as it is made. It is a lie on a form holding an uncommitted
+ * draft, where closing the sheet throws the draft away; there it says "Cancel".
+ * Filling in a run, tapping "Done" and losing it is the bug this fixes.
+ */
+function setCloseLabel(text) {
+  ensureRoot().querySelector('.sheet-close').textContent = text;
+}
+
 function open(title, build) {
   const node = ensureRoot();
   lastFocus = document.activeElement;
   node.querySelector('.sheet-title').textContent = title;
+  setCloseLabel('Done');
   const body = node.querySelector('.sheet-body');
   body.innerHTML = '';
   build(body);
@@ -118,6 +131,7 @@ export function openDay(index, state, onChange) {
 
 function renderDayRoot(body, index, state, onChange, heading) {
   setTitle(heading);
+  setCloseLabel('Done');
   body.innerHTML = '';
   const entries = state.days[index];
 
@@ -243,6 +257,7 @@ function renderDetail(body, index, state, onChange, heading, catId, editing) {
 
   const paint = () => {
     setTitle(cat.label);
+    setCloseLabel('Cancel');
     body.innerHTML = '';
     const sub = subType(catId, draft.sub);
     const colours = PALETTE[cat.palette];
@@ -373,8 +388,17 @@ function renderDetail(body, index, state, onChange, heading, catId, editing) {
 
 // --- week sheet ------------------------------------------------------------
 
-export function openWeek(state, onPick, hasData = () => false) {
+export function openWeek(state, onPick, hasData = () => false, onSavePreset = null) {
   open('Choose a week', (body) => {
+    // Saving a preset lives here rather than on the front page: this sheet is
+    // already where weeks are managed, and the front page keeps exactly one
+    // conditional line.
+    if (onSavePreset) {
+      const save = el('button', 'sheet-wide', 'Save this week as a preset');
+      save.type = 'button';
+      save.addEventListener('click', () => onSavePreset());
+      body.appendChild(save);
+    }
     const today = new Date();
     const current = toISO(mondayOf(today));
     const list = el('div', 'week-list');
@@ -412,6 +436,7 @@ export function openWeek(state, onPick, hasData = () => false) {
 
 export function openTitle(state, onChange) {
   open('Title', (body) => {
+    setCloseLabel('Cancel');
     const field = el('input', 'text-field');
     field.type = 'text';
     field.maxLength = LIMITS.title;
@@ -438,4 +463,5 @@ export function openTitle(state, onChange) {
 // Exported rather than copied. A second sheet implementation is how two sheets
 // end up quietly looking different from each other.
 
-export { open as openSheet, setTitle as setSheetTitle, chipRow, badge, el };
+export { open as openSheet, setTitle as setSheetTitle, setCloseLabel,
+         chipRow, badge, el };

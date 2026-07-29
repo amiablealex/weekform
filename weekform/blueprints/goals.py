@@ -29,9 +29,11 @@ GOAL_ID = re.compile(r"^[a-z0-9]{4,16}$")
 # spare while capping what one request can store.
 MAX_PAYLOAD_BYTES = 4 * 1024
 
-# Mirrors LIMITS.goals in tokens.js. Duplicated deliberately rather than shared:
-# the client enforces it for the person's benefit, the server for its own.
-MAX_GOALS = 6
+# Mirrors LIMITS.storedGoals in tokens.js, and is a storage ceiling rather than
+# a design one. How many goals may be active in the *same week* is capped at six
+# by the client, and only the client can enforce that: working out what is
+# active means reading `from` and `to`, and this side does not read payloads.
+MAX_GOALS = 40
 
 
 def _require_user():
