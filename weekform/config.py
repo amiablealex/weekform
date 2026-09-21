@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from sqlalchemy.pool import NullPool
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -35,14 +37,22 @@ def _bool(name: str, default: bool = False) -> bool:
 
 
 def _engine_options() -> dict:
-    options: dict = {"pool_pre_ping": True}
-    if _database_uri().startswith("postgresql"):
+    if not _database_uri().startswith("postgresql"):
+        return {"pool_pre_ping": True}
+    return {
+        # No pool. The service sleeps after ten minutes without outbound
+        # traffic, and Railway counts an open database connection as activity,
+        # so an idle pool can keep it awake and billed for good. A fresh
+        # connection per request costs a few milliseconds at this volume.
+        # pool_pre_ping goes with it: a connection that is never kept cannot
+        # go stale.
+        "poolclass": NullPool,
         # Without a connect timeout, a database that is cold or unreachable
         # leaves every gunicorn worker blocked on the socket during start-up.
         # The container then looks alive while answering nothing, which is
         # indistinguishable from a crash until you read the logs.
-        options["connect_args"] = {"connect_timeout": 5}
-    return options
+        "connect_args": {"connect_timeout": 5},
+    }
 
 
 class Config:
