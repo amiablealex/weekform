@@ -36,8 +36,13 @@ if [ -z "${SECRET_KEY}" ]; then
 fi
 
 # exec so gunicorn becomes PID 1 and receives stop signals directly.
+#
+# One worker, deliberately. Each worker is a whole copy of the app in memory and
+# memory is most of the Railway bill; four threads is far more concurrency than
+# this site sees. It also makes the rate limits exact, since they are counted
+# per worker — a second worker would quietly double every one of them.
 exec gunicorn "weekform:create_app()" \
   --bind "0.0.0.0:${PORT}" \
-  --workers 2 --threads 4 \
+  --workers 1 --threads 4 \
   --timeout 30 \
   --access-logfile - --error-logfile - --log-level info
