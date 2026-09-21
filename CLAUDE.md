@@ -217,7 +217,8 @@ Roughly in order of how likely they are to matter.
    the next deploy. Consider making it fatal outside debug.
 3. **The Python suite runs against SQLite only.** It covers behaviour, not
    dialect. Nothing exercises Postgres before a deploy does.
-4. **Rate limits are per worker.** Two workers means double the stated limit.
+4. **Rate limits are per worker.** `start.sh` runs one, so they are exact. A
+   second worker would quietly double every one of them.
 5. **No email verification at sign-up.** Someone can register an address that is
    not theirs; the real owner can reclaim it by resetting. Deliberate, not an
    oversight.
@@ -225,6 +226,12 @@ Roughly in order of how likely they are to matter.
    personal log, wrong if this ever became collaborative.
 7. **Fonts load from Google's CDN.** Named in the privacy page.
    `scripts/fetch-fonts.sh` removes the third party.
+8. **The app sleeps.** `railway.json` lets Railway stop it after ten minutes
+   without outbound traffic, because memory is most of the bill. The first
+   request after that is slow and can return a 502. Anything that holds a
+   connection open or phones home on a timer keeps it awake and billed, which
+   is why Postgres runs on `NullPool` in `config.py`. Check that sleeping still
+   happens after adding any background work or client library.
 
 ## Deliberately not built
 
