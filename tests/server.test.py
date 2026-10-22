@@ -22,11 +22,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from xml.etree import ElementTree
 
 # Configuration is read when weekform.config is imported, so the environment has
 # to be set before the app package is touched at all.
@@ -36,6 +38,9 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_TMP}/test.db"
 os.environ["ADMIN_USER"] = "admin"
 os.environ["ADMIN_PASSWORD"] = "admin-password"
 os.environ.pop("RESEND_API_KEY", None)
+# Test the shipped default, so the check that it agrees with tokens.js means
+# something even if a shell happens to have SITE_DOMAIN set.
+os.environ.pop("SITE_DOMAIN", None)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -150,6 +155,72 @@ eq("/account/goals" in home, False, "and no link to goals")
 eq(public.get("/account").status_code, 302, "the account area redirects when signed out")
 eq(public.get("/account/goals").status_code, 302, "so does the goals page")
 eq(public.get("/account/presets").status_code, 302, "and the presets page")
+
+
+# --- being found -----------------------------------------------------------
+
+section("being found")
+
+ROOT = Path(__file__).resolve().parent.parent
+SITE = f"https://{Config.SITE_DOMAIN}"
+
+
+def meta(page: str, attr: str, name: str) -> str | None:
+    found = re.search(rf'<meta {attr}="{re.escape(name)}" content="([^"]*)"', page)
+    return found.group(1) if found else None
+
+
+brand = re.search(r"domain:\s*'([^']+)'", (ROOT / "static/js/tokens.js").read_text())
+eq(brand and brand.group(1), Config.SITE_DOMAIN,
+   "SITE_DOMAIN agrees with the domain printed on every strip")
+
+ok(f'<link rel="canonical" href="{SITE}/">' in home, "the front page names its canonical URL")
+eq(meta(home, "property", "og:url"), f"{SITE}/", "and gives the same URL to link previews")
+eq(meta(home, "property", "og:image"), f"{SITE}/static/img/og.png",
+   "og:image is absolute and https, whatever the request looked like")
+ok('content="http://' not in home and 'href="http://' not in home,
+   "nothing in the front page points at plain http")
+ok(meta(home, "name", "description") == meta(home, "property", "og:description")
+   and meta(home, "name", "description"),
+   "the description and the preview description are the same words")
+manifest = json.loads((ROOT / "static/manifest.webmanifest").read_text())
+eq(manifest["description"], meta(home, "name", "description"),
+   "and so is the manifest's")
+
+card = public.get("/static/img/og.png")
+eq((card.status_code, card.mimetype), (200, "image/png"), "the preview image is served")
+eq(int.from_bytes(card.data[16:20], "big"), 1200, "at the width og:image:width claims")
+eq(int.from_bytes(card.data[20:24], "big"), 630, "and the height og:image:height claims")
+card.close()
+
+ld = re.search(r'<script type="application/ld\+json">(.*?)</script>', home, re.S)
+site_ld = json.loads(ld.group(1)) if ld else {}
+eq((site_ld.get("@type"), site_ld.get("name"), site_ld.get("url")),
+   ("WebSite", "weekform", f"{SITE}/"), "structured data names the site and its URL")
+
+ok('name="robots" content="noindex"' not in home, "the front page is indexable")
+for path in ("/privacy", "/login", "/signup", "/forgot"):
+    ok('name="robots" content="noindex"' in public.get(path).get_data(as_text=True),
+       f"{path} keeps its noindex")
+
+robots = public.get("/robots.txt").get_data(as_text=True)
+ok("Disallow: /api/" in robots, "robots.txt keeps crawlers off the API")
+ok(f"Sitemap: {SITE}/sitemap.xml" in robots, "and points at the sitemap")
+ok("Disallow: /login" not in robots and "Disallow: /signup" not in robots,
+   "but leaves the sign-in pages crawlable, or their noindex goes unread")
+
+smap = public.get("/sitemap.xml")
+eq((smap.status_code, smap.mimetype), (200, "application/xml"), "sitemap.xml is served as XML")
+locs = [n.text for n in ElementTree.fromstring(smap.data).iter(
+    "{http://www.sitemaps.org/schemas/sitemap/0.9}loc")]
+eq(locs, [f"{SITE}/"], "and lists the front page alone")
+for loc in locs:
+    listed = public.get(loc[len(SITE):])
+    ok(listed.status_code == 200 and 'content="noindex"' not in listed.get_data(as_text=True),
+       f"{loc} is a page that may actually be indexed")
+
+eq(public.get("/api/healthz", headers={"Host": "healthcheck.railway.app"}).status_code, 200,
+   "the health check still answers to Railway's own hostname")
 
 
 # --- signing up ------------------------------------------------------------

@@ -3,15 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>weekform</title>
-<meta name="description" content="Turn a week of training into one image for a group chat.">
+{# Absolute URLs come from SITE_DOMAIN, never from the request. Behind
+    Railway's proxy the app sees plain http, so url_for(_external=True) wrote
+    http:// into og:image; and a canonical that echoes the Host header would
+    happily name any hostname the request arrived on. #}
+{% set site = 'https://' ~ config['SITE_DOMAIN'] %}
+{% set description = 'Log a week of training and share it as an image strip. Runs, workouts, rest days. No account needed.' %}
+<title>weekform — a week of training as one image</title>
+<meta name="description" content="{{ description }}">
+<link rel="canonical" href="{{ site }}/">
 <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101215" media="(prefers-color-scheme: dark)">
 
 <meta property="og:title" content="weekform">
-<meta property="og:description" content="Turn a week of training into one image for a group chat.">
+<meta property="og:description" content="{{ description }}">
 <meta property="og:type" content="website">
-<meta property="og:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
+<meta property="og:url" content="{{ site }}/">
+{# A strip drawn by render.js itself, set on 1200x630 white. The strip alone
+    is 2.57:1 and most link previews crop anything that far from 1.91:1. #}
+<meta property="og:image" content="{{ site }}{{ url_for('static', filename='img/og.png') }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A week of training drawn as seven circles, Monday to Sunday">
+<meta name="twitter:card" content="summary_large_image">
+
+{# Lets Google show "weekform" as the site name above the result. Nothing
+    richer: SoftwareApplication markup only earns a rich result with ratings. #}
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "WebSite", "name": "weekform", "url": {{ (site ~ '/')|tojson }}}
+</script>
 
 <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">

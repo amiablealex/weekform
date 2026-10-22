@@ -116,13 +116,14 @@ detail to slip into an unrelated change.
 | Change what is stored or how links encode | `static/js/state.js` |
 | Change sync behaviour | `static/js/sync.js` |
 | Add a route | a blueprint in `weekform/blueprints/` |
+| Change what search engines and link previews see | the `<head>` of `weekform/templates/index.html`; robots and sitemap in `weekform/blueprints/main.py`. `static/img/og.png` is a `render.js` strip on 1200×630 white — re-export it if the strip's look changes |
 | Change the data model | `weekform/models.py` — and read the migrations note in README |
 
 ## Verify before delivering anything
 
 ```bash
 node tests/logic.test.mjs        # 279 assertions, pure logic, no dependencies
-python3 tests/server.test.py     # 150 assertions against a throwaway SQLite file
+python3 tests/server.test.py     # 173 assertions against a throwaway SQLite file
 python3 -m http.server 8000      # then /harness.html for the strip and goal cards
 flask --app weekform run --debug # needs SECRET_KEY and ADMIN_PASSWORD set
 ```

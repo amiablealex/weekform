@@ -1,7 +1,7 @@
 {
   "name": "weekform",
   "short_name": "weekform",
-  "description": "Turn a week of training into one image for a group chat.",
+  "description": "Log a week of training and share it as an image strip. Runs, workouts, rest days. No account needed.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

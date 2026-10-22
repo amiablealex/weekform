@@ -310,8 +310,16 @@ async function onShare() {
   }
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    // An experiment, and kept to these lines so it can be taken out cleanly.
+    // The address goes in `text`, not `url`: some targets handed a url and a
+    // file keep one and drop the other. Whether it then arrives as a caption, a
+    // second message with its own preview card, or not at all is decided by the
+    // app it lands in. If a common one turns the image into image-plus-card,
+    // remove it — the domain is already on the strip.
+    const withLink = { files: [file], text: `https://${BRAND.domain}` };
+    const payload = navigator.canShare(withLink) ? withLink : { files: [file] };
     try {
-      await navigator.share({ files: [file] });
+      await navigator.share(payload);
       recordShare('share');
       return;
     } catch (err) {
