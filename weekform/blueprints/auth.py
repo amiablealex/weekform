@@ -11,8 +11,8 @@ from ..mail import is_configured as email_configured, send_reset_link
 from ..models import PasswordReset, User, db
 from ..security import (client_key, csrf_ok, current_user, email_problem,
                         hash_password, hash_reset_token, log_in, log_out,
-                        new_reset_token, password_problem, rate_limited,
-                        reset_expiry, verify_password)
+                        new_reset_token, password_problem, public_url,
+                        rate_limited, reset_expiry, verify_password)
 
 bp = Blueprint("auth", __name__)
 
@@ -127,7 +127,9 @@ def forgot():
             db.session.add(PasswordReset(user_id=user.id, token_hash=token_hash,
                                          expires_at=reset_expiry()))
             db.session.commit()
-            link = url_for("auth.reset_form", token=token, _external=True)
+            # Not url_for(_external=True): see public_url for why the request
+            # must not decide where this link points.
+            link = public_url(url_for("auth.reset_form", token=token))
             sent, detail = send_reset_link(user.email, link)
             if not sent:
                 current_app.logger.error("reset email not sent: %s", detail)

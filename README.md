@@ -37,7 +37,7 @@ The renderer has its own harness needing no server — `python3 -m http.server
 
 ```bash
 node tests/logic.test.mjs     # 279 assertions, no dependencies
-python3 tests/server.test.py  # 173 assertions, no test runner
+python3 tests/server.test.py  # 186 assertions, no test runner
 ```
 
 ## Deploy

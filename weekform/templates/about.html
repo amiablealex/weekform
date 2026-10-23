@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}About — weekform{% endblock %}
+{% block indexing %}
+<meta name="description" content="weekform turns a week of training into one image strip for a group chat. A personal project by amiablealex.">
+<link rel="canonical" href="{{ public_url(url_for('main.about')) }}">
+{% endblock %}
+{% block content %}
+
+<h1>About</h1>
+
+<p class="lede">weekform turns a week of training into one image: seven circles,
+  Monday to Sunday, showing what you did each day. Runs, rides, swims, gym
+  sessions, sport, yoga, rest days.</p>
+<p>Tap a day to add what you did, then share the image. It works without an
+  account.</p>
+
+<h2>Why</h2>
+<p>Made because I wanted it for myself: a way to share my training with group
+  chats without flooding them with every workout.</p>
+
+<h2>Who made it</h2>
+<p>Built by <a href="https://amiablealex.com">amiablealex</a> as a personal
+  project. The source is at
+  <a href="https://github.com/amiablealex/weekform">github.com/amiablealex/weekform</a>.</p>
+
+{% endblock %}

@@ -1,21 +1,27 @@
-"""The page itself."""
+"""The page itself, and the few around it that anybody may read."""
 
 from __future__ import annotations
 
-from flask import Blueprint, Response, current_app, render_template
+from flask import Blueprint, Response, render_template
+
+from ..security import public_url
 
 bp = Blueprint("main", __name__)
 
-
-def _site() -> str:
-    # Always https and always the configured domain. The request cannot be
-    # trusted for either: behind Railway's proxy the app sees plain http.
-    return f"https://{current_app.config['SITE_DOMAIN']}"
+# The pages a search engine is told about. Each must also override the
+# `indexing` block in base.html, or it goes out with noindex and the sitemap
+# contradicts itself; the server suite checks both halves.
+PUBLIC_PAGES = ("/", "/about")
 
 
 @bp.get("/")
 def index() -> str:
     return render_template("index.html")
+
+
+@bp.get("/about")
+def about() -> str:
+    return render_template("about.html")
 
 
 @bp.get("/privacy")
@@ -35,18 +41,15 @@ def robots() -> Response:
             "Disallow: /api/\n"
             "Allow: /\n"
             "\n"
-            f"Sitemap: {_site()}/sitemap.xml\n")
+            f"Sitemap: {public_url('/sitemap.xml')}\n")
     return Response(body, mimetype="text/plain")
 
 
 @bp.get("/sitemap.xml")
 def sitemap() -> Response:
-    # One URL, on purpose. Every other page is behind an account or carries
-    # noindex from base.html, and a sitemap that lists a noindexed page
-    # contradicts itself. A new public page needs adding here and losing that
-    # noindex, together.
+    urls = "".join(f"  <url><loc>{public_url(path)}</loc></url>\n" for path in PUBLIC_PAGES)
     body = ('<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-            f"  <url><loc>{_site()}/</loc></url>\n"
+            f"{urls}"
             "</urlset>\n")
     return Response(body, mimetype="application/xml")

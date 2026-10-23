@@ -48,7 +48,8 @@ from weekform import create_app                                    # noqa: E402
 from weekform.config import Config                                 # noqa: E402
 from weekform.models import (Goal, PasswordReset, Preset, User,    # noqa: E402
                              Week, db)
-from weekform.security import hash_password, verify_password       # noqa: E402
+from weekform.security import (hash_password, public_url,         # noqa: E402
+                               verify_password)
 from weekform import security                                      # noqa: E402
 from weekform.blueprints import api as api_bp                      # noqa: E402
 from weekform.blueprints import auth as auth_bp                    # noqa: E402
@@ -213,11 +214,29 @@ smap = public.get("/sitemap.xml")
 eq((smap.status_code, smap.mimetype), (200, "application/xml"), "sitemap.xml is served as XML")
 locs = [n.text for n in ElementTree.fromstring(smap.data).iter(
     "{http://www.sitemaps.org/schemas/sitemap/0.9}loc")]
-eq(locs, [f"{SITE}/"], "and lists the front page alone")
+eq(locs, [f"{SITE}/", f"{SITE}/about"], "and lists the front page and the about page")
 for loc in locs:
     listed = public.get(loc[len(SITE):])
-    ok(listed.status_code == 200 and 'content="noindex"' not in listed.get_data(as_text=True),
+    page = listed.get_data(as_text=True)
+    ok(listed.status_code == 200 and 'content="noindex"' not in page,
        f"{loc} is a page that may actually be indexed")
+    ok(f'<link rel="canonical" href="{loc}">' in page, f"{loc} names itself as canonical")
+    ok(meta(page, "name", "description"), f"{loc} carries a description")
+
+about = public.get("/about").get_data(as_text=True)
+ok('href="https://amiablealex.com"' in about, "the about page links to amiablealex.com")
+ok('href="/about"' in public.get("/privacy").get_data(as_text=True),
+   "and the page footer links to it, beside Privacy")
+eq(about.count('name="robots"'), 0, "the about page has no robots tag at all")
+
+with app.test_request_context(base_url="http://singularity:8000"):
+    eq(public_url("/x"), f"{SITE}/x", "outside debug, a URL ignores the request entirely")
+    app.config["DEBUG"] = True
+    try:
+        eq(public_url("/x"), "http://singularity:8000/x",
+           "in debug, it follows the request, so a reset on the Pi links to the Pi")
+    finally:
+        app.config["DEBUG"] = False
 
 eq(public.get("/api/healthz", headers={"Host": "healthcheck.railway.app"}).status_code, 200,
    "the health check still answers to Railway's own hostname")
@@ -512,6 +531,8 @@ try:
                                     "csrf": TOKEN}).status_code, 200,
        "a reset request is accepted")
     ok("link" in captured, "and a link is sent")
+    ok(captured["link"].startswith(f"{SITE}/reset/"),
+       "on https and the public domain, though the request arrived as plain http")
     token = captured["link"].rsplit("/", 1)[-1]
 
     with app.app_context():
@@ -550,6 +571,20 @@ try:
         db.session.commit()
     eq(anonymous().get("/reset/anything-hashing-to-zeroes").status_code, 400,
        "an expired link is dead")
+
+    # The classic way to steal a reset: ask for one with a forged host, so the
+    # owner is emailed a link to the attacker's server with the token in it.
+    forged = app.test_client()
+    with forged.session_transaction(base_url="https://evil.example") as sess:
+        sess["csrf"] = TOKEN
+    captured.clear()
+    forged.post("/forgot", base_url="https://evil.example",
+                headers={"X-Forwarded-Host": "evil.example"},
+                data={"email": "dave@example.com", "csrf": TOKEN})
+    ok("link" in captured, "a reset requested under a forged host is still sent")
+    ok(captured.get("link", "").startswith(f"{SITE}/reset/") and
+       "evil" not in captured.get("link", ""),
+       "but the link points at the real site, never the forged host")
 finally:
     auth_bp.send_reset_link = real_send
 

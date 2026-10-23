@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% block title %}weekform{% endblock %}</title>
-<meta name="robots" content="noindex">
+{# Kept out of search unless a page overrides this. One that does must also
+   be listed in PUBLIC_PAGES in blueprints/main.py, which feeds the sitemap. #}
+{% block indexing %}<meta name="robots" content="noindex">{% endblock %}
 <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#101215" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
@@ -40,6 +42,7 @@
 </main>
 
 <footer class="page-foot">
+  <a href="{{ url_for('main.about') }}">About</a>
   <a href="{{ url_for('main.privacy') }}">Privacy</a>
 </footer>
 

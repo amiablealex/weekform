@@ -40,6 +40,8 @@
 }
 
 .page-foot {
+  display: flex;
+  gap: 18px;
   max-width: 560px;
   margin: 40px auto 0;
   padding: 0 14px;
@@ -66,6 +68,10 @@
 }
 
 .page p { margin: 0 0 10px; font-size: 15px; }
+
+/* Links in running text. A button that happens to sit in a paragraph, as on
+   Settings, keeps its own colours. */
+.page p a:not(.btn) { color: var(--accent); text-underline-offset: 2px; }
 
 .lede { color: var(--ink-soft); }
 

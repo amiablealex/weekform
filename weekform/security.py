@@ -15,7 +15,8 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
-from flask import current_app, g, redirect, request, session, url_for
+from flask import (current_app, g, has_request_context, redirect, request,
+                   session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .models import User, db
@@ -155,6 +156,23 @@ def hash_reset_token(token: str) -> str:
 
 def reset_expiry() -> datetime:
     return datetime.now(timezone.utc) + timedelta(hours=RESET_VALID_HOURS)
+
+
+# --- absolute URLs ---------------------------------------------------------
+# For anything that leaves the page: the reset email, canonical and preview
+# tags, the sitemap. Never built from the request, for two reasons. Behind
+# Railway's proxy the app sees plain http, which is how og:image once went out
+# as http://. And a reset link built from the Host header is the standard way to
+# steal one: ask for a reset with a forged host and the owner is emailed a link
+# to someone else's server, token included. Cloudflare and Railway route on the
+# host today, but that is their configuration, not something to lean on here.
+
+def public_url(path: str = "/") -> str:
+    if current_app.config.get("DEBUG") and has_request_context():
+        # On the Pi, a reset requested locally should link back to the Pi
+        # rather than to the live site, which has never heard of the token.
+        return request.host_url.rstrip("/") + path
+    return f"https://{current_app.config['SITE_DOMAIN']}{path}"
 
 
 def configure_session(app) -> None:

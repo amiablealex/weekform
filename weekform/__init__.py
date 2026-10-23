@@ -14,7 +14,7 @@ from flask import Flask
 
 from .config import Config
 from .models import db
-from .security import configure_session, csrf_token, current_user
+from .security import configure_session, csrf_token, current_user, public_url
 
 
 def create_app(config_object: type[Config] | None = None) -> Flask:
@@ -71,6 +71,8 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
     # Templates need both of these on nearly every page.
     app.jinja_env.globals["csrf_token"] = csrf_token
     app.jinja_env.globals["current_user"] = current_user
+    # And this on the pages search engines read.
+    app.jinja_env.globals["public_url"] = public_url
 
     @app.after_request
     def security_headers(response):
